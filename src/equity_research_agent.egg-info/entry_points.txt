@@ -1,0 +1,2 @@
+[console_scripts]
+eq-research-agent = equity_research_agent.cli:main

@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from rich.console import Console
+from rich.panel import Panel
+
+from .config import Settings
+from .llm import ClaudeResearchClient
+from .storage import ArtifactStore
+from .workflow import build_workflow
+
+console = Console()
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate an equity research draft from pasted text using Claude + LangGraph."
+    )
+    parser.add_argument("--text", help="Raw input text to analyse.")
+    parser.add_argument("--input-file", type=Path, help="Path to a text file containing the source text.")
+    parser.add_argument("--company", help="Optional company name metadata.")
+    parser.add_argument("--ticker", help="Optional ticker metadata.")
+    parser.add_argument("--analyst", help="Optional requesting analyst or desk metadata.")
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        help="Upload output artifacts to Azure Blob Storage after local generation.",
+    )
+    return parser.parse_args()
+
+
+def _load_input_text(args: argparse.Namespace) -> str:
+    if args.text:
+        return args.text.strip()
+    if args.input_file:
+        return args.input_file.read_text(encoding="utf-8").strip()
+    if not sys.stdin.isatty():
+        return sys.stdin.read().strip()
+    raise ValueError("Provide --text, --input-file, or pipe text via stdin.")
+
+
+def main() -> None:
+    args = _parse_args()
+    raw_input = _load_input_text(args)
+    if not raw_input:
+        raise ValueError("Input text is empty.")
+
+    settings = Settings()
+    client = ClaudeResearchClient(settings)
+    workflow = build_workflow(client)
+
+    initial_state = {
+        "raw_input": raw_input,
+        "company": args.company,
+        "ticker": args.ticker,
+        "analyst": args.analyst,
+    }
+
+    console.print("[bold cyan]Running equity research workflow...[/bold cyan]")
+    state = workflow.invoke(initial_state)
+
+    store = ArtifactStore(settings)
+    persisted = store.save_local(
+        title=state["title"],
+        markdown=state["final_markdown"],
+        payload=state["final_payload"],
+    )
+
+    console.print(Panel.fit(state["final_markdown"], title="Generated research note"))
+    console.print(f"\nSaved markdown: [green]{persisted.markdown_path}[/green]")
+    console.print(f"Saved JSON: [green]{persisted.json_path}[/green]")
+
+    should_upload = args.upload or settings.upload_to_azure
+    if should_upload:
+        urls = store.upload(persisted)
+        console.print("\n[bold green]Uploaded to Azure Blob Storage:[/bold green]")
+        for label, url in urls.items():
+            console.print(f"- {label}: {url}")
+
+
+if __name__ == "__main__":
+    main()

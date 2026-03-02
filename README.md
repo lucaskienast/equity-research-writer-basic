@@ -1,0 +1,529 @@
+# Equity Research Agent
+
+A production-style starter repository for an **agentic equity research drafting workflow** built with:
+
+- **Python 3.11+**
+- **LangChain**
+- **LangGraph**
+- **Claude via Anthropic API**
+- **Azure Blob Storage**
+
+This project takes pasted text (for example, a company news release, trading update, or inbound research email), runs it through a deterministic editorial workflow, prints the final research note to the console, writes local artifacts, and optionally uploads them to Azure Blob Storage.
+
+---
+
+## What this solution does
+
+For each input text, the workflow generates the following outputs in sequence:
+
+1. High-level summary bullets
+2. Unobvious points
+3. The Spark
+4. The Financials
+5. The Commercial
+6. The Segments
+7. The Outlook
+8. Top bullets
+9. Executive summary paragraph
+10. Title
+11. Final markdown document
+12. Local artifact persistence
+13. Optional Azure Blob upload
+
+### Important business assumption
+
+Your original step 9 says **"3 punchy bullet points"** but then maps bullets to:
+
+- Financials
+- Commercial
+- Segments
+- Outlook
+
+That is **four** bullets, not three.
+
+This implementation resolves the ambiguity by generating **exactly 4 top bullets**.
+
+---
+
+## Why this design
+
+This is intentionally implemented as a **LangGraph workflow** rather than one giant prompt.
+
+That gives you:
+
+- clearer node-by-node orchestration
+- easier testing and debugging
+- prompt isolation per section
+- easier future extension with review loops, compliance checks, or RAG
+- cleaner auditability for an investment banking setting
+
+The current version is a **deterministic agentic workflow** rather than a free-form tool-using autonomous agent. That is usually the safer starting point in equity research.
+
+---
+
+## Repository structure
+
+```text
+equity-research-agent/
+├── .env.example
+├── .gitignore
+├── Makefile
+├── README.md
+├── pyproject.toml
+├── requirements.txt
+├── examples/
+│   └── sample_input.txt
+├── output/
+│   └── .gitkeep
+├── src/
+│   └── equity_research_agent/
+│       ├── __init__.py
+│       ├── cli.py
+│       ├── config.py
+│       ├── llm.py
+│       ├── models.py
+│       ├── prompts.py
+│       ├── renderer.py
+│       ├── storage.py
+│       └── workflow.py
+└── tests/
+    ├── test_renderer.py
+    └── test_storage.py
+```
+
+---
+
+## End-to-end architecture
+
+```mermaid
+flowchart TD
+    A[Input text from analyst] --> B[CLI entrypoint]
+    B --> C[Load settings and initialise Claude client]
+    C --> D[LangGraph workflow]
+    D --> E[Summary bullets]
+    E --> F[Unobvious points]
+    F --> G[The Spark]
+    G --> H[The Financials]
+    H --> I[The Commercial]
+    I --> J[The Segments]
+    J --> K[The Outlook]
+    K --> L[Top bullets]
+    L --> M[Executive summary]
+    M --> N[Title]
+    N --> O[Render final markdown + JSON payload]
+    O --> P[Save locally]
+    P --> Q[Optional upload to Azure Blob Storage]
+```
+
+---
+
+## How the code works
+
+### 1. `config.py`
+
+This centralises environment-driven settings:
+
+- Anthropic API key
+- Claude model name
+- model temperature
+- max tokens
+- Azure connection string
+- Azure container name
+- Azure blob prefix
+- local output directory
+
+This makes the workflow portable between local dev, CI, and production.
+
+### 2. `prompts.py`
+
+This is the core editorial control layer.
+
+It contains:
+
+- a **base system prompt** describing the role, audience, jargon, and definitions
+- one **task specification per node**
+- prompt assembly logic that injects:
+  - metadata
+  - source text
+  - previously generated sections
+
+This is where you should tune house style.
+
+### 3. `llm.py`
+
+This wraps `ChatAnthropic` and ensures every generation call uses:
+
+- the shared system prompt
+- the task-specific instructions
+- the relevant prior context
+
+This makes the workflow feel like one consistent editorial conversation even though each node is invoked separately.
+
+### 4. `workflow.py`
+
+This builds the LangGraph state machine.
+
+State fields are accumulated as the graph progresses. Each node writes one key back into the shared state.
+
+### 5. `renderer.py`
+
+This takes all generated sections and assembles:
+
+- final markdown document
+- final JSON payload
+
+### 6. `storage.py`
+
+This handles:
+
+- local file persistence
+- Azure Blob upload
+- run directory naming
+- blob naming conventions
+
+### 7. `cli.py`
+
+This is the simple user entrypoint.
+
+It:
+
+- reads input text from `--text`, `--input-file`, or stdin
+- runs the graph
+- prints the final markdown to the console
+- writes the outputs locally
+- uploads to Azure if requested
+
+---
+
+## Step-by-step: how to code this from scratch
+
+If you want to rebuild this yourself rather than just run the repo, follow this order.
+
+### Step 1: Create the Python package
+
+Create a project with:
+
+- `pyproject.toml`
+- `src/` layout
+- `tests/`
+- `.env.example`
+
+Install these dependencies:
+
+- `langchain`
+- `langchain-anthropic`
+- `langgraph`
+- `azure-storage-blob`
+- `pydantic`
+- `pydantic-settings`
+- `python-slugify`
+- `rich`
+
+### Step 2: Define runtime config
+
+Create a `Settings` class using `pydantic-settings`.
+
+Read the following from environment variables:
+
+- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_MODEL`
+- `ANTHROPIC_TEMPERATURE`
+- `ANTHROPIC_MAX_TOKENS`
+- `AZURE_STORAGE_CONNECTION_STRING`
+- `AZURE_BLOB_CONTAINER`
+- `AZURE_BLOB_PREFIX`
+- `UPLOAD_TO_AZURE`
+- `LOCAL_OUTPUT_DIR`
+
+### Step 3: Define workflow state
+
+Create a shared state structure containing:
+
+- raw input text
+- metadata like company, ticker, analyst
+- each generated section
+- rendered markdown
+- rendered JSON payload
+
+### Step 4: Design the global system prompt
+
+Write a strong system prompt that fixes:
+
+- role: sell-side equity research drafting assistant
+- audience: sophisticated institutional investors
+- tone: compressed, precise, analytical
+- vocabulary: YoY, QoQ, FY, margin, consensus, guidance, materiality
+- rules: no fabrication, say when data is missing, flag ambiguity
+
+This is critical because it creates house style consistency across all nodes.
+
+### Step 5: Write task-specific prompts
+
+For each section, define:
+
+- objective
+- output format
+- length limit
+- tone
+- section-specific angle
+
+Do **not** rely on a single monster prompt. Keep each node focused.
+
+### Step 6: Wrap Claude in a reusable client
+
+Create one class that:
+
+- initialises `ChatAnthropic`
+- injects the base system prompt
+- injects the task prompt
+- returns normalised text output
+
+### Step 7: Build the graph
+
+Create a sequential LangGraph flow where each node writes back into shared state.
+
+Recommended order:
+
+1. `summary_bullets`
+2. `unobvious_points`
+3. `spark`
+4. `financials`
+5. `commercial`
+6. `segments`
+7. `outlook`
+8. `top_bullets`
+9. `executive_summary`
+10. `title`
+11. `render_document`
+
+### Step 8: Render final artifacts
+
+Render two output forms:
+
+- Markdown for human reading and distribution
+- JSON for downstream systems, storage, search, or QA
+
+### Step 9: Persist locally
+
+Create a timestamped output directory and write:
+
+- `research_note.md`
+- `research_note.json`
+
+### Step 10: Upload to Azure Blob Storage
+
+Using `BlobServiceClient`:
+
+- create or access the target container
+- upload markdown file
+- upload json file
+- use a blob path convention such as:
+
+```text
+equity-research/YYYY/MM/DD/run-id/research_note.md
+```
+
+### Step 11: Add basic tests
+
+At minimum, test:
+
+- markdown rendering
+- blob naming / local persistence
+- edge cases like missing metadata
+
+### Step 12: Extend for production
+
+Your next likely production steps are:
+
+- review node that checks for format compliance
+- hallucination / unsupported-claim checker
+- analyst approval UI
+- RAG against prior notes and consensus history
+- event classification (results, trading update, M&A, management change, litigation)
+- broker house-style prompt packs by sector
+- LangSmith tracing
+- queue-based async processing
+- database-backed audit trail
+
+---
+
+## Setup
+
+### 1. Create a virtual environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 2. Install dependencies
+
+```bash
+pip install -e .[dev]
+```
+
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and add your real values.
+
+At minimum, for local generation you need:
+
+```env
+ANTHROPIC_API_KEY=...
+```
+
+To enable upload you also need:
+
+```env
+AZURE_STORAGE_CONNECTION_STRING=...
+AZURE_BLOB_CONTAINER=equity-research-output
+UPLOAD_TO_AZURE=true
+```
+
+---
+
+## Running the workflow
+
+### Option 1: Run from a file
+
+```bash
+python -m equity_research_agent.cli \
+  --input-file examples/sample_input.txt \
+  --company "Example Co" \
+  --ticker EXM
+```
+
+### Option 2: Pass text inline
+
+```bash
+python -m equity_research_agent.cli \
+  --text "Your pasted article or email body goes here" \
+  --company "Example Co" \
+  --ticker EXM
+```
+
+### Option 3: Pipe from stdin
+
+```bash
+cat examples/sample_input.txt | python -m equity_research_agent.cli --company "Example Co"
+```
+
+### Option 4: Force Azure upload for a single run
+
+```bash
+python -m equity_research_agent.cli \
+  --input-file examples/sample_input.txt \
+  --company "Example Co" \
+  --ticker EXM \
+  --upload
+```
+
+---
+
+## Example output files
+
+Each run writes a timestamped folder under `output/`, for example:
+
+```text
+output/20260301T101500Z-example-co-demand-slows-but-margin-holds/
+├── research_note.json
+└── research_note.md
+```
+
+---
+
+## How to adapt this to your bank
+
+### Prompt control
+
+The biggest value lever is `prompts.py`.
+
+That is where you should encode:
+
+- your desk's exact tone
+- sector-specific terminology
+- preferred title style
+- house view on materiality
+- wording for beats, misses, downgrades, upgrades, and profit warnings
+
+### Metadata enrichment
+
+You can extend the CLI or API layer to pass:
+
+- sector
+- region
+- reporting currency
+- market cap bucket
+- analyst name
+- urgency / market-open flag
+- source type
+
+### Event routing
+
+A strong next step is to insert a first node that classifies the event into one of:
+
+- results
+- trading update
+- acquisition / disposal
+- capital raise
+- CEO / CFO change
+- litigation / regulatory
+- guidance change
+
+Then branch into event-specific prompt packs.
+
+### Quality control
+
+Add a post-generation reviewer node that checks for:
+
+- unsupported numbers
+- duplicated statements
+- tone drift
+- length violations
+- missing outlook commentary
+- title weakness
+
+---
+
+## Tests
+
+Run:
+
+```bash
+pytest
+```
+
+---
+
+## Future production hardening
+
+For a real bank deployment, I would add the following before broad rollout:
+
+- retry + circuit breaker logic around model calls
+- model fallback tiering
+- structured JSON outputs for each section
+- prompt versioning
+- analyst feedback capture
+- per-sector templates
+- PII / MNPI handling guardrails
+- entitlement-aware storage paths
+- observability and latency metrics
+- workflow API wrapper with FastAPI
+- integration with Outlook / distribution lists / CRM
+
+---
+
+## Notes on Azure terminology
+
+Azure object storage uses **containers** and **blobs** rather than the AWS term **bucket**. This project maps your request for "Azure cloud bucket storage" to **Azure Blob Storage container upload**.
+
+---
+
+## Sample input
+
+See `examples/sample_input.txt`.
+
