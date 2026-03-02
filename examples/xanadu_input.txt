@@ -1,0 +1,109 @@
+Set forth below is a press release dated March 2, 2026 by Xanadu Quantum Technologies Inc. and Crane Harbor Acquisition Corp. announcing the effectiveness of the Registration Statement on Form F-4.
+
+ 
+
+Xanadu and Crane Harbor Announce SEC Declaration of Effectiveness of Form F-4 Registration Statement
+
+ 
+
+TORONTO, ON – March 2, 2026 – Xanadu Quantum Technologies Inc. (“Xanadu”), a global leader in photonic quantum computing, and Crane Harbor Acquisition Corp. (Nasdaq: CHAC) (“Crane Harbor”), a publicly traded special purpose acquisition company, today announced that the U.S. Securities and Exchange Commission (the “SEC”) has declared effective the companies’ joint registration statement on Form F-4 in connection with their previously announced proposed business combination.
+
+ 
+
+This marks a significant milestone in the transaction process and moves Xanadu substantially closer to becoming a publicly traded company. The proposed business combination will be submitted to Crane Harbor and Xanadu shareholders for approval at a special meeting scheduled for March 19, 2026, and is expected to close shortly thereafter in the first quarter of 2026, subject to the satisfaction of customary closing conditions, including the approval by Crane Harbor and Xanadu shareholders and the listing of the shares of the combined company on the Toronto Stock Exchange and the Nasdaq Stock Market, which is subject to stock exchange approval. Upon closing, the transaction is expected to result in approximately US$500 million in gross proceeds, assuming no redemptions.
+
+ 
+
+“This is yet another defining moment for Xanadu,” said Christian Weedbrook, Founder and Chief Executive Officer of Xanadu. “The effectiveness of the registration statement brings us an important step closer to becoming a publicly traded company as we continue to roll out key commercial partnerships that helps demonstrate our company’s critical role in the path to quantum computing availability. We believe access to the public markets will enable us to accelerate our technology roadmap, deepen global partnerships, and scale toward delivering fault-tolerant quantum computing.”
+
+ 
+
+“We are proud to partner with Xanadu at this important stage in its growth,” said Bill Fradin, Chief Executive Officer of Crane Harbor Acquisition Corp. “The effectiveness of the registration statement reflects the substantial work completed by both teams and positions the company, which is expected to be the first pure-play photonic quantum computing company to enter the public markets, with strong momentum, differentiated technology, and a clear long-term strategy. We look forward to completing the transaction and supporting Xanadu in its next phase as a public company.”
+
+ 
+
+Following completion of the transaction, the combined company’s shares are expected to trade on the Toronto Stock Exchange and Nasdaq Stock Market under the ticker symbol “XNDU.”
+
+ 
+
+
+ 
+
+ 
+
+ 
+
+Continued Strategic and Technical Momentum
+
+ 
+
+Since announcing the proposed transaction, Xanadu has continued to build momentum across research, commercial partnerships, and governance:
+
+ 
+
+●	Launched a joint research initiative with Lockheed Martin focused on advancing the foundations of quantum machine learning.
+ 
+
+●	Collaborated with Mitsubishi Chemical on new quantum algorithms aimed at improving next-generation semiconductor manufacturing processes.
+ 
+
+●	Strengthened its executive leadership and incoming board, appointing a Chief Financial Officer and Chief Legal Officer and nominating experienced global business leaders as directors.
+ 
+
+●	Integrated PennyLane with the Munich Quantum Toolkit, enhancing quantum compilation and interoperability capabilities.
+ 
+
+●	Expanded its collaboration with Tower Semiconductor to accelerate photonic chip innovation and scalable hardware manufacturing.
+ 
+
+●	Partnered with Thorlabs to advance optical fiber component development critical to large-scale photonic systems.
+ 
+
+●	Worked with Rolls-Royce and Riverlane to dramatically reduce simulation times for jet engine airflow modeling, unlocking new aerospace prototyping capabilities.
+ 
+
+●	Advanced to Stage B of DARPA’s Quantum Benchmarking Initiative, underscoring the credibility of its path toward utility-scale systems.
+ 
+
+●	Secured up to CAD$23 million through Canada’s Quantum Champions Program to support the development of fault-tolerant quantum computing in Canada.
+ 
+
+●	Announced an upcoming Analyst Day on March 4, 2026, where management will outline its long-term technology and commercialization roadmap.
+ 
+
+About Xanadu
+
+ 
+
+Xanadu is a Canadian quantum computing company with the mission to build quantum computers that are useful and available to people everywhere. Founded in 2016, Xanadu has become one of the world’s leading quantum hardware and software companies. The Company also leads the development of PennyLane, an open-source software library for quantum computing and application development. Visit xanadu.ai or follow us on X @XanaduAI.
+
+ 
+
+Business Combination
+
+ 
+
+Xanadu recently announced a business combination agreement with Crane Harbor Acquisition Corp. The combined company, Xanadu Quantum Technologies Limited (“NewCo”), is expected to be capitalized with approximately US$500 million in gross proceeds, comprising approximately US$225 million from Crane Harbor’s trust account, assuming no redemptions by Crane Harbor’s public stockholders, as well as US$275 million from a group of strategic and institutional investors participating in the transaction via a common equity committed private placement investment. NewCo is expected to be listed on the Nasdaq Stock Market and on the Toronto Stock Exchange.
+
+ 
+
+
+2
+
+ 
+
+ 
+
+About Crane Harbor Acquisition Corp
+
+ 
+
+Crane Harbor Acquisition Corp is a blank check company formed for the purpose of effecting a merger, share exchange, asset acquisition, share purchase, reorganization or similar business combination with one or more businesses.
+
+ 
+
+Additional Information About the Proposed Transaction and Where to Find It
+
+ 
+
+The proposed business combination transaction will be submitted to shareholders of Crane Harbor and Xanadu for their consideration at the special meeting scheduled for March 19, 2026. NewCo and Crane Harbor have jointly filed a registration statement on Form F-4 (the “Registration Statement”) to the U.S. Securities and Exchange Commission (the “SEC”). The Registration Statement includes a proxy statement/prospectus that has been distributed to Crane Harbor’s shareholders in connection with Crane Harbor’s solicitation of proxies for the vote by Crane Harbor’s shareholders in connection with the proposed transaction and other matters to be described in the Registration Statement, as well as the prospectus relating to the offer of the securities to be issued to Xanadu’s shareholders in connection with the completion of the proposed transaction. The Registration Statement has been declared effective by the SEC, and Crane Harbor has mailed a definitive proxy statement/prospectus and other relevant documents to Crane Harbor shareholders as of the record date established for voting on the proposed transaction. Before making any voting or investment decision, Crane Harbor’s shareholders and other interested persons are advised to read the definitive proxy statement/prospectus, as well as other documents filed with the SEC by NewCo and/or Crane Harbor in connection with the proposed transaction, as these documents will contain important information about NewCo, Crane Harbor, Xanadu and the proposed transaction. Shareholders may obtain a copy of the definitive proxy statement/prospectus, as well as other documents filed by NewCo and/or Crane Harbor with the SEC, without charge, at the SEC’s website located at www.sec.gov, Crane Harbor’s website at www.craneharboracquisition.com or by emailing investors@xanadu.ai.

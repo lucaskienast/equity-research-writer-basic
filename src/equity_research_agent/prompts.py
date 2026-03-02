@@ -340,7 +340,7 @@ def build_task_prompt(task_name: str, instructions: str, state: ResearchState, c
         pieces.append("Previously generated context:\n" + context)
     return "\n\n".join(pieces)
 
-
+# TODO: clear in-prompt labeling of what is financial, commercial, segmental, outlook etc sections? or just kinda inferred?
 TASK_SPECS = {
     "summary_bullets": {
         "context": [],
