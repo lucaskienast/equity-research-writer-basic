@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from .config import Settings
@@ -8,16 +9,24 @@ from .models import ResearchState
 from .prompts import BASE_SYSTEM_PROMPT, TASK_SPECS, build_task_prompt
 
 
-class ClaudeResearchClient:
+class ResearchClient:
     def __init__(self, settings: Settings) -> None:
         settings.validate_for_generation()
         self._settings = settings
-        self._llm = ChatAnthropic(
-            api_key=settings.anthropic_api_key,
-            model=settings.anthropic_model,
-            temperature=settings.anthropic_temperature,
-            max_tokens=settings.anthropic_max_tokens,
-        )
+        if settings.llm_provider == "openai":
+            self._llm = ChatOpenAI(
+                api_key=settings.openai_api_key,
+                model=settings.llm_model,
+                temperature=settings.llm_temperature,
+                max_tokens=settings.llm_max_tokens,
+            )
+        else:
+            self._llm = ChatAnthropic(
+                api_key=settings.anthropic_api_key,
+                model=settings.llm_model or "claude-sonnet-4-6",
+                temperature=settings.llm_temperature,
+                max_tokens=settings.llm_max_tokens,
+            )
 
     def generate(self, task_key: str, state: ResearchState) -> str:
         if task_key not in TASK_SPECS:
@@ -56,3 +65,7 @@ class ClaudeResearchClient:
             return "\n".join(part.strip() for part in parts if str(part).strip()).strip()
 
         return str(content).strip()
+
+
+# Backward-compat alias
+ClaudeResearchClient = ResearchClient

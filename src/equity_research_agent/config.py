@@ -9,11 +9,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True)
 
-    anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
-    anthropic_model: str = Field(default="claude-sonnet-4-6", alias="ANTHROPIC_MODEL")
-    anthropic_temperature: float = Field(default=0.1, alias="ANTHROPIC_TEMPERATURE")
-    anthropic_max_tokens: int = Field(default=1400, alias="ANTHROPIC_MAX_TOKENS")
+    # LLM provider selection: "openai" (default) | "anthropic"
+    llm_provider: str = Field(default="openai", alias="LLM_PROVIDER")
 
+    # Shared LLM settings (apply to whichever provider is active)
+    llm_model: str = Field(default="gpt-4o-mini", alias="LLM_MODEL")
+    llm_temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
+    llm_max_tokens: int = Field(default=1400, alias="LLM_MAX_TOKENS")
+
+    # OpenAI
+    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+
+    # Anthropic
+    anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+
+    # Azure Blob Storage
     azure_storage_connection_string: str | None = Field(
         default=None, alias="AZURE_STORAGE_CONNECTION_STRING"
     )
@@ -24,10 +34,15 @@ class Settings(BaseSettings):
     local_output_dir: Path = Field(default=Path("output"), alias="LOCAL_OUTPUT_DIR")
 
     def validate_for_generation(self) -> None:
-        if not self.anthropic_api_key:
+        if self.llm_provider == "openai":
+            if not self.openai_api_key:
+                raise ValueError("OPENAI_API_KEY is required when LLM_PROVIDER=openai.")
+        elif self.llm_provider == "anthropic":
+            if not self.anthropic_api_key:
+                raise ValueError("ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic.")
+        else:
             raise ValueError(
-                "ANTHROPIC_API_KEY is required to generate research output. "
-                "Set it in your shell or .env file."
+                f"Unknown LLM_PROVIDER '{self.llm_provider}'. Use 'openai' or 'anthropic'."
             )
 
     def validate_for_upload(self) -> None:

@@ -4,7 +4,7 @@ from typing import Callable
 
 from langgraph.graph import END, START, StateGraph
 
-from .llm import ClaudeResearchClient
+from .llm import ResearchClient
 from .models import ResearchState
 from .renderer import build_payload, render_markdown
 
@@ -22,7 +22,7 @@ def _render_node(state: ResearchState) -> ResearchState:
     return {"final_markdown": markdown, "final_payload": payload}
 
 
-def build_workflow(client: ClaudeResearchClient):
+def build_workflow(client: ResearchClient):
     graph = StateGraph(ResearchState)
 
     ordered_tasks = [

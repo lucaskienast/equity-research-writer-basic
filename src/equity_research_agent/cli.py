@@ -4,11 +4,13 @@ import argparse
 import sys
 from pathlib import Path
 
+import pdfplumber
+
 from rich.console import Console
 from rich.panel import Panel
 
 from .config import Settings
-from .llm import ClaudeResearchClient
+from .llm import ResearchClient
 from .storage import ArtifactStore
 from .workflow import build_workflow
 
@@ -32,10 +34,18 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _extract_pdf_text(path: Path) -> str:
+    with pdfplumber.open(path) as pdf:
+        pages = [page.extract_text() or "" for page in pdf.pages]
+    return "\n\n".join(pages).strip()
+
+
 def _load_input_text(args: argparse.Namespace) -> str:
     if args.text:
         return args.text.strip()
     if args.input_file:
+        if args.input_file.suffix.lower() == ".pdf":
+            return _extract_pdf_text(args.input_file)
         return args.input_file.read_text(encoding="utf-8").strip()
     if not sys.stdin.isatty():
         return sys.stdin.read().strip()
@@ -49,7 +59,7 @@ def main() -> None:
         raise ValueError("Input text is empty.")
 
     settings = Settings()
-    client = ClaudeResearchClient(settings)
+    client = ResearchClient(settings)
     workflow = build_workflow(client)
 
     initial_state = {

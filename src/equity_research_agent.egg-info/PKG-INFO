@@ -12,6 +12,8 @@ Requires-Dist: azure-storage-blob>=12.24.0
 Requires-Dist: azure-core>=1.32.0
 Requires-Dist: pydantic>=2.10.0
 Requires-Dist: pydantic-settings>=2.7.0
+Requires-Dist: pdfplumber>=0.11.0
+Requires-Dist: langchain-openai>=0.3.0
 Requires-Dist: rich>=13.9.0
 Provides-Extra: dev
 Requires-Dist: pytest>=8.3.0; extra == "dev"
