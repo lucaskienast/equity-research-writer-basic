@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 import pdfplumber
@@ -67,28 +68,40 @@ def main() -> None:
         "company": args.company,
         "ticker": args.ticker,
         "analyst": args.analyst,
+        "llm_model": f"{settings.llm_provider}/{settings.llm_model}",
     }
 
     console.print("[bold cyan]Running equity research workflow...[/bold cyan]")
-    state = workflow.invoke(initial_state)
+    t0 = time.perf_counter()
+    try:
+        state = workflow.invoke(initial_state)
 
-    store = ArtifactStore(settings)
-    persisted = store.save_local(
-        title=state["title"],
-        markdown=state["final_markdown"],
-        payload=state["final_payload"],
-    )
+        store = ArtifactStore(settings)
+        persisted = store.save_local(
+            title=state["title"],
+            analyst_markdown=state["final_analyst_markdown"],
+            morning_note_markdown=state["final_morning_note_markdown"],
+            payload=state["final_payload"],
+        )
 
-    console.print(Panel.fit(state["final_markdown"], title="Generated research note"))
-    console.print(f"\nSaved markdown: [green]{persisted.markdown_path}[/green]")
-    console.print(f"Saved JSON: [green]{persisted.json_path}[/green]")
+        console.print(Panel.fit(state["final_markdown"], title="Generated research note"))
+        console.print(f"\nSaved analyst review: [green]{persisted.analyst_markdown_path}[/green]")
+        console.print(f"Saved morning note:   [green]{persisted.morning_note_markdown_path}[/green]")
+        console.print(f"Saved JSON:           [green]{persisted.json_path}[/green]")
 
-    should_upload = args.upload or settings.upload_to_azure
-    if should_upload:
-        urls = store.upload(persisted)
-        console.print("\n[bold green]Uploaded to Azure Blob Storage:[/bold green]")
-        for label, url in urls.items():
-            console.print(f"- {label}: {url}")
+        should_upload = args.upload or settings.upload_to_azure
+        if should_upload:
+            urls = store.upload(persisted)
+            console.print("\n[bold green]Uploaded to Azure Blob Storage:[/bold green]")
+            for label, url in urls.items():
+                console.print(f"- {label}: {url}")
+    except Exception as exc:
+        elapsed = time.perf_counter() - t0
+        console.print(f"\n[bold red]Workflow failed after {elapsed:.1f}s[/bold red]: {exc}")
+        raise
+
+    elapsed = time.perf_counter() - t0
+    console.print(f"\n[bold green]Completed in {elapsed:.1f}s[/bold green]")
 
 
 if __name__ == "__main__":

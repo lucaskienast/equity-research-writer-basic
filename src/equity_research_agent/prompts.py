@@ -226,13 +226,13 @@ investor audience's attention.
 
 THE_BULLETS_PROMPT = """
 ### Request settings:\n
-Your task is to help simplify technical news to a generalist audience. At the top, include the heading of this request:
-'The Green Box Bullets'. Materiality is determined by how much the share price might move on the back of that news.
-For example, if something is likely to drive a share price movement of more than 5%, that is deemed material.
-Maintain a formal yet engaging tone, utilising emotive language to emphasise key achievements and ensure the narrative 
-is dynamic and captivating. Incorporate brief numeric details for context, and use emotive language where appropriate 
-where appropriate to emphasise key achievements. Each bullet should be no more than 30 words. It should not include any
-quantitative financial metrics, but can include qualitative financial commentary.
+Your task is to help simplify technical news to a generalist audience. Materiality is determined by how much the share 
+price might move on the back of that news. For example, if something is likely to drive a share price movement of more 
+than 5%, that is deemed material. Maintain a formal yet engaging tone, utilising emotive language to emphasise key 
+achievements and ensure the narrative is dynamic and captivating. Incorporate brief numeric details for context, and 
+use emotive language where appropriate where appropriate to emphasise key achievements. Each bullet should be no more 
+than 30 words. It should not include any quantitative financial metrics, but can include qualitative financial 
+commentary.
 \n\n
 ### Key additional information:\n
 Previously created: 'The Financials Paragraph'
@@ -253,15 +253,15 @@ The goal is to entice the sophisticated investor audience to seek out more infor
 
 THE_SUMMARY_PARAGRAPH_PROMPT = """
 ### Request settings:\n
-Your task is to help simplify technical news to a generalist audience. At the top, include the heading of this request:
-'The Green Box Bullets'. Materiality is determined by how much the share price might move on the back of that news.
-For example, if something is likely to drive a share price movement of more than 5%, that is deemed material.
-Maintain a formal yet engaging tone, utilising emotive language to emphasise key achievements and ensure the narrative 
-is dynamic and captivating. Incorporate brief numeric details for context, and use emotive language where appropriate 
-where appropriate to emphasise key achievements. The summary paragraph must be more than 40 and less than 50 words 
-in total. The last sentence should always be: 'We reiterate our XXX rating, and XXXp TP', where the XXX will be 
-replaced by the analyst later. It should not include any quantitative financial metrics, but can include qualitative 
-financial commentary. Actionable is defined as crafted in a way that drives the reader to take an investment action.
+Your task is to help simplify technical news to a generalist audience. Materiality is determined by how much the share 
+price might move on the back of that news. For example, if something is likely to drive a share price movement of more 
+than 5%, that is deemed material. Maintain a formal yet engaging tone, utilising emotive language to emphasise key 
+achievements and ensure the narrative is dynamic and captivating. Incorporate brief numeric details for context, and 
+use emotive language where appropriate where appropriate to emphasise key achievements. The summary paragraph must be 
+more than 40 and less than 50 words in total. The last sentence should always be: 'We reiterate our XXX rating, and 
+XXXp TP', where the XXX will be replaced by the analyst later. It should not include any quantitative financial 
+metrics, but can include qualitative financial commentary. Actionable is defined as crafted in a way that drives the 
+reader to take an investment action.
 \n\n
 ### Key additional information:\n
 Previously created: 'The Financials Paragraph'
@@ -282,9 +282,9 @@ an investment action.
 
 THE_TITLE_PROMPT = """
 ### Request settings:\n
-Your task is to help simplify technical news to a generalist audience. At the top, include the heading of this request:
-'The Green Box Bullets'. It must be more than 4 and less than 8 words in total. Do not use the company's name in the 
-title. It should not include any quantitative financial metrics, but can include qualitative financial commentary.
+Your task is to help simplify technical news to a generalist audience. It must be more than 4 and less than 8 words in 
+total. Do not use the company's name in the title. It should not include any quantitative financial metrics, but can 
+include qualitative financial commentary.
 \n\n
 ### Key additional information:\n
 Previously created: 'The Financials Paragraph'

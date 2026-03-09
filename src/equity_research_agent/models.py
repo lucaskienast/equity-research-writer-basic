@@ -20,5 +20,8 @@ class ResearchState(TypedDict, total=False):
     top_bullets: str
     executive_summary: str
     title: str
+    llm_model: str
     final_markdown: str
     final_payload: dict[str, Any]
+    final_analyst_markdown: str
+    final_morning_note_markdown: str

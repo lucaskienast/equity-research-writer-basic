@@ -4,9 +4,9 @@ from typing import Callable
 
 from langgraph.graph import END, START, StateGraph
 
-from .llm import ResearchClient
+from .llm import ResearchClient, ClaudeResearchClient
 from .models import ResearchState
-from .renderer import build_payload, render_markdown
+from .renderer import build_payload, render_markdown, render_analyst_markdown, render_morning_note_markdown
 
 
 def _make_generation_node(client: ClaudeResearchClient, task_key: str) -> Callable[[ResearchState], ResearchState]:
@@ -19,7 +19,14 @@ def _make_generation_node(client: ClaudeResearchClient, task_key: str) -> Callab
 def _render_node(state: ResearchState) -> ResearchState:
     markdown = render_markdown(state)
     payload = build_payload(state)
-    return {"final_markdown": markdown, "final_payload": payload}
+    analyst_md = render_analyst_markdown(state)
+    morning_note_md = render_morning_note_markdown(state)
+    return {
+        "final_markdown": markdown,
+        "final_payload": payload,
+        "final_analyst_markdown": analyst_md,
+        "final_morning_note_markdown": morning_note_md,
+    }
 
 
 def build_workflow(client: ResearchClient):

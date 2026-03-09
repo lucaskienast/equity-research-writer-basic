@@ -6,6 +6,81 @@ from typing import Any
 from .models import ResearchState
 
 
+def _build_header(state: ResearchState) -> str:
+    company_line = []
+    if state.get("company"):
+        company_line.append(f"**Company:** {state['company']}")
+    if state.get("ticker"):
+        company_line.append(f"**Ticker:** {state['ticker']}")
+    if state.get("analyst"):
+        company_line.append(f"**Requested by:** {state['analyst']}")
+    if state.get("llm_model"):
+        company_line.append(f"**Model:** {state['llm_model']}")
+    metadata_block = " | ".join(company_line)
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    parts = []
+    if metadata_block:
+        parts.append(metadata_block)
+    parts.append(f"**Generated:** {generated_at}")
+    return "\n".join(parts)
+
+
+def render_analyst_markdown(state: ResearchState) -> str:
+    header = _build_header(state)
+    body = "\n".join([
+        '<div style="background-color: #fffde7; padding: 16px; border-radius: 8px; border: 1px solid #fff176; margin: 16px 0;">',
+        "",
+        "## For Analyst Review",
+        "",
+        "### High-level summary bullets",
+        state["summary_bullets"],
+        "",
+        "### Unobvious points",
+        state["unobvious_points"],
+        "",
+        "### The Spark",
+        state["spark"],
+        "</div>",
+    ])
+    return "\n\n".join([header, body]).strip() + "\n"
+
+
+def render_morning_note_markdown(state: ResearchState) -> str:
+    header = _build_header(state)
+    now = datetime.now(timezone.utc)
+    note_date = f"{now.day} {now.strftime('%B %Y')}"
+    sections = [
+        header,
+        "# Morning Note",
+        note_date,
+        "",
+        f"## {state.get('company', '')}",
+        "\n".join([
+            '<div style="background-color: #e8f5e9; padding: 16px; border-radius: 8px; border: 1px solid #a5d6a7; margin: 16px 0;">',
+            "",
+            f"### {state['title']}",
+            "",
+            state["top_bullets"],
+            "",
+            state["executive_summary"],
+            "</div>",
+        ]),
+        "",
+        "### The Financials",
+        state["financials"],
+        "",
+        "### The Commercial",
+        state["commercial"],
+        "",
+        "### The Segments",
+        state["segments"],
+        "",
+        "### The Outlook",
+        state["outlook"],
+    ]
+    return "\n".join(part for part in sections if part is not None).strip() + "\n"
+
+
 def render_markdown(state: ResearchState) -> str:
     company_line = []
     if state.get("company"):
@@ -14,40 +89,61 @@ def render_markdown(state: ResearchState) -> str:
         company_line.append(f"**Ticker:** {state['ticker']}")
     if state.get("analyst"):
         company_line.append(f"**Requested by:** {state['analyst']}")
+    if state.get("llm_model"):
+        company_line.append(f"**Model:** {state['llm_model']}")
 
     metadata_block = " | ".join(company_line)
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(timezone.utc)
+    generated_at = now.strftime("%Y-%m-%d %H:%M UTC")
+    note_date = f"{now.day} {now.strftime('%B %Y')}"
 
     sections = [
-        f"# {state['title']}",
         metadata_block if metadata_block else "",
         f"**Generated:** {generated_at}",
         "",
-        "## Top bullets",
-        state["top_bullets"],
+        "\n".join([
+            '<div style="background-color: #fffde7; padding: 16px; border-radius: 8px; border: 1px solid #fff176; margin: 16px 0;">',
+            "",
+            "## For Analyst Review",
+            "",
+            "### High-level summary bullets",
+            state["summary_bullets"],
+            "",
+            "### Unobvious points",
+            state["unobvious_points"],
+            "",
+            "### The Spark",
+            state["spark"],
+            "</div>",
+        ]),
         "",
-        "## Summary paragraph",
-        state["executive_summary"],
+        "---",
         "",
-        "## High-level summary bullets",
-        state["summary_bullets"],
+        "# Morning Note",
+        note_date,
         "",
-        "## Unobvious points",
-        state["unobvious_points"],
+        f"## {state.get('company', '')}",
+        "\n".join([
+            '<div style="background-color: #e8f5e9; padding: 16px; border-radius: 8px; border: 1px solid #a5d6a7; margin: 16px 0;">',
+            "",
+            f"### {state['title']}",
+            "",
+            state["top_bullets"],
+            "",
+            state["executive_summary"],
+            "</div>",
+        ]),
         "",
-        "## The Spark",
-        state["spark"],
-        "",
-        "## The Financials",
+        "### The Financials",
         state["financials"],
         "",
-        "## The Commercial",
+        "### The Commercial",
         state["commercial"],
         "",
-        "## The Segments",
+        "### The Segments",
         state["segments"],
         "",
-        "## The Outlook",
+        "### The Outlook",
         state["outlook"],
     ]
     return "\n".join(part for part in sections if part is not None).strip() + "\n"
@@ -59,6 +155,7 @@ def build_payload(state: ResearchState) -> dict[str, Any]:
         "company": state.get("company"),
         "ticker": state.get("ticker"),
         "analyst": state.get("analyst"),
+        "llm_model": state.get("llm_model"),
         "summary_bullets": state["summary_bullets"],
         "unobvious_points": state["unobvious_points"],
         "spark": state["spark"],

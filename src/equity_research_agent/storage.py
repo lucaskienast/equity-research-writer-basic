@@ -13,7 +13,8 @@ from .config import Settings
 @dataclass(slots=True)
 class PersistedArtifacts:
     run_dir: Path
-    markdown_path: Path
+    analyst_markdown_path: Path
+    morning_note_markdown_path: Path
     json_path: Path
     azure_urls: dict[str, str] | None = None
 
@@ -28,19 +29,26 @@ class ArtifactStore:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def save_local(self, title: str, markdown: str, payload: dict) -> PersistedArtifacts:
+    def save_local(self, title: str, analyst_markdown: str, morning_note_markdown: str, payload: dict) -> PersistedArtifacts:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         slug = _simple_slugify(title)[:60]
         run_dir = self.settings.local_output_dir / f"{timestamp}-{slug}"
         run_dir.mkdir(parents=True, exist_ok=True)
 
-        markdown_path = run_dir / "research_note.md"
+        analyst_markdown_path = run_dir / "analyst_review.md"
+        morning_note_markdown_path = run_dir / "morning_note.md"
         json_path = run_dir / "research_note.json"
 
-        markdown_path.write_text(markdown, encoding="utf-8")
+        analyst_markdown_path.write_text(analyst_markdown, encoding="utf-8")
+        morning_note_markdown_path.write_text(morning_note_markdown, encoding="utf-8")
         json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
-        return PersistedArtifacts(run_dir=run_dir, markdown_path=markdown_path, json_path=json_path)
+        return PersistedArtifacts(
+            run_dir=run_dir,
+            analyst_markdown_path=analyst_markdown_path,
+            morning_note_markdown_path=morning_note_markdown_path,
+            json_path=json_path,
+        )
 
     def upload(self, persisted: PersistedArtifacts) -> dict[str, str]:
         from azure.core.exceptions import ResourceExistsError
@@ -59,7 +67,8 @@ class ArtifactStore:
 
         uploads: dict[str, str] = {}
         for label, path, content_type in [
-            ("markdown", persisted.markdown_path, "text/markdown"),
+            ("analyst_markdown", persisted.analyst_markdown_path, "text/markdown"),
+            ("morning_note_markdown", persisted.morning_note_markdown_path, "text/markdown"),
             ("json", persisted.json_path, "application/json"),
         ]:
             blob_name = f"{prefix}/{timestamp}/{persisted.run_dir.name}/{path.name}"
