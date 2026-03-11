@@ -11,3 +11,6 @@ test:
 
 lint:
 	ruff check .
+
+run-web:
+	$(PYTHON) -m equity_research_agent.web

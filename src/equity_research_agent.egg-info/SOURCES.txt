@@ -8,6 +8,7 @@ src/equity_research_agent/models.py
 src/equity_research_agent/prompts.py
 src/equity_research_agent/renderer.py
 src/equity_research_agent/storage.py
+src/equity_research_agent/web.py
 src/equity_research_agent/workflow.py
 src/equity_research_agent.egg-info/PKG-INFO
 src/equity_research_agent.egg-info/SOURCES.txt
