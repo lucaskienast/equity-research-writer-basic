@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Equity Research Writer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+  <style>
+    /* Base */
+    body { background-color: #f9fafb; }
+    html.dark body { background-color: #030712; }
+
+    /* Prose — light */
+    .prose h1, .prose h2, .prose h3 { color: #111827; margin-top: 1em; margin-bottom: 0.4em; font-weight: 600; }
+    .prose h1 { font-size: 1.25rem; }
+    .prose h2 { font-size: 1.1rem; }
+    .prose h3 { font-size: 1rem; }
+    .prose p, .prose ul, .prose ol, .prose li { color: #374151; line-height: 1.65; }
+    .prose ul { padding-left: 1.4em; list-style-type: disc; }
+    .prose ol { padding-left: 1.4em; list-style-type: decimal; }
+    .prose li { margin-bottom: 0.25em; }
+    .prose strong { color: #111827; }
+    .prose code { background: #f3f4f6; color: #065f46; padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.875em; }
+    .prose pre { background: #f3f4f6; padding: 0.75em 1em; border-radius: 6px; overflow-x: auto; }
+    .prose pre code { background: transparent; padding: 0; }
+
+    /* Prose — dark */
+    html.dark .prose h1, html.dark .prose h2, html.dark .prose h3 { color: #e5e7eb; }
+    html.dark .prose p, html.dark .prose ul, html.dark .prose ol, html.dark .prose li { color: #d1d5db; }
+    html.dark .prose strong { color: #f3f4f6; }
+    html.dark .prose code { background: #1f2937; color: #86efac; }
+    html.dark .prose pre { background: #1f2937; }
+
+    /* Bubble: user message */
+    .msg-user { background: #e0e7ff; color: #1e1b4b; }
+    html.dark .msg-user { background: #1e293b; color: #e2e8f0; }
+
+    /* Bubble: analyst */
+    .msg-analyst { background: rgba(255,255,255,0.6); border-color: #d1d5db; }
+    .msg-analyst .bubble-label { color: #b45309; }
+    html.dark .msg-analyst { background: rgba(17,24,39,0.6); border-color: #374151; }
+    html.dark .msg-analyst .bubble-label { color: #fbbf24; }
+
+    /* Bubble: morning note */
+    .msg-morning { background: rgba(255,255,255,0.6); border-color: #d1d5db; }
+    .msg-morning .bubble-label { color: #059669; }
+    html.dark .msg-morning { background: rgba(17,24,39,0.6); border-color: #374151; }
+    html.dark .msg-morning .bubble-label { color: #34d399; }
+
+    /* Bubble: error */
+    .msg-error { background: rgba(127,29,29,0.08); border-color: rgba(127,29,29,0.25); color: #b91c1c; }
+    html.dark .msg-error { background: rgba(127,29,29,0.4); border-color: rgba(153,27,27,0.5); color: #fca5a5; }
+
+    /* Bubble: file attachment */
+    .msg-file { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+    html.dark .msg-file { background: #1e293b; border-color: #334155; color: #94a3b8; }
+    .msg-file .file-icon { color: #94a3b8; }
+    html.dark .msg-file .file-icon { color: #64748b; }
+
+    /* Bubble: thinking */
+    .msg-thinking { background: #f9fafb; border-color: #e5e7eb; }
+    html.dark .msg-thinking { background: #111827; border-color: #1f2937; }
+    .msg-thinking .thinking-label { color: #9ca3af; }
+    html.dark .msg-thinking .thinking-label { color: #6b7280; }
+
+    /* Three-dot bounce */
+    @keyframes bounce-dot {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-6px); opacity: 1; }
+    }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #9ca3af; animation: bounce-dot 1.2s infinite; }
+    html.dark .dot { background: #6b7280; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col text-gray-900 dark:text-gray-100">
+
+  <!-- Header -->
+  <header class="border-b border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/70 backdrop-blur sticky top-0 z-10">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <span class="text-lg font-semibold tracking-tight">Equity Research Writer</span>
+      <button id="themeToggle" title="Toggle theme"
+        class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors p-1 rounded-md">
+      </button>
+    </div>
+  </header>
+
+  <!-- Chat area -->
+  <main class="flex-1 overflow-y-auto pb-56">
+    <div id="chat" class="max-w-4xl mx-auto px-4 py-6 flex flex-col gap-4"></div>
+  </main>
+
+  <!-- Sticky input panel -->
+  <div class="fixed bottom-0 inset-x-0 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-800">
+    <div class="max-w-4xl mx-auto px-4 py-3">
+
+      <!-- Collapsible metadata row -->
+      <details class="mb-2 group" open>
+        <summary class="cursor-pointer text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 select-none list-none flex items-center gap-1">
+          <svg id="chevron" class="w-3 h-3 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          Optional: Company / Ticker / Analyst
+        </summary>
+        <div class="mt-2 grid grid-cols-3 gap-2">
+          <input id="company" type="text" placeholder="Company name"
+            class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500" />
+          <input id="ticker" type="text" placeholder="Ticker (e.g. OCDO)"
+            class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500" />
+          <input id="analyst" type="text" placeholder="Analyst name"
+            class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500" />
+        </div>
+      </details>
+
+      <!-- Main input row -->
+      <div class="flex items-end gap-2">
+        <!-- File attach -->
+        <label class="flex-none cursor-pointer text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" title="Attach PDF or TXT">
+          <svg class="w-5 h-5 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+          </svg>
+          <input id="fileInput" type="file" accept=".pdf,.txt" class="hidden" />
+        </label>
+
+        <!-- Textarea -->
+        <div class="flex-1 relative">
+          <textarea id="textInput" rows="2"
+            placeholder="Paste RNS, trading update, or context… (Cmd/Ctrl+Enter to send)"
+            class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-3 pr-12 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 leading-relaxed"></textarea>
+          <!-- Send button -->
+          <button id="sendBtn"
+            class="absolute right-2 bottom-2 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-black rounded-lg p-1.5 transition-colors"
+            title="Send">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- File badge -->
+      <div id="fileBadge" class="hidden mt-2 inline-flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full px-3 py-1 text-xs text-gray-600 dark:text-gray-300">
+        <span id="fileName"></span>
+        <button id="removeFile" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById('chat');
+    const textInput = document.getElementById('textInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const fileInput = document.getElementById('fileInput');
+    const fileBadge = document.getElementById('fileBadge');
+    const fileNameEl = document.getElementById('fileName');
+    const removeFileBtn = document.getElementById('removeFile');
+    const companyEl = document.getElementById('company');
+    const tickerEl = document.getElementById('ticker');
+    const analystEl = document.getElementById('analyst');
+
+    const themeToggle = document.getElementById('themeToggle');
+    const htmlEl = document.documentElement;
+
+    function applyTheme(dark) {
+      htmlEl.classList.toggle('dark', dark);
+      themeToggle.innerHTML = dark
+        ? `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-9h-1M4.34 12h-1m15.07-6.07-.71.71M6.34 17.66l-.71.71m12.73 0-.71-.71M6.34 6.34l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>`
+        : `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>`;
+    }
+
+    // Default light; restore saved preference
+    const savedTheme = localStorage.getItem('theme');
+    applyTheme(savedTheme === 'dark');
+
+    themeToggle.addEventListener('click', () => {
+      const isDark = !htmlEl.classList.contains('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      applyTheme(isDark);
+    });
+
+    let selectedFile = null;
+    let polling = null;
+
+    // File selection
+    fileInput.addEventListener('change', () => {
+      selectedFile = fileInput.files[0] || null;
+      if (selectedFile) {
+        fileNameEl.textContent = selectedFile.name;
+        fileBadge.classList.remove('hidden');
+      }
+    });
+
+    removeFileBtn.addEventListener('click', () => {
+      selectedFile = null;
+      fileInput.value = '';
+      fileBadge.classList.add('hidden');
+    });
+
+    // Cmd/Ctrl+Enter submits
+    textInput.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        send();
+      }
+    });
+
+    sendBtn.addEventListener('click', send);
+
+    function setInputsDisabled(disabled) {
+      textInput.disabled = disabled;
+      sendBtn.disabled = disabled;
+      fileInput.disabled = disabled;
+      companyEl.disabled = disabled;
+      tickerEl.disabled = disabled;
+      analystEl.disabled = disabled;
+      sendBtn.classList.toggle('opacity-50', disabled);
+    }
+
+    function scrollToBottom() {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function appendUserMessage(label) {
+      const el = document.createElement('div');
+      el.className = 'self-end max-w-xl msg-user rounded-2xl rounded-br-sm px-4 py-3 text-sm break-words';
+      el.textContent = label;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function appendThinking() {
+      const el = document.createElement('div');
+      el.id = 'thinking';
+      el.className = 'self-start flex items-center gap-1.5 msg-thinking border rounded-2xl rounded-bl-sm px-4 py-3';
+      el.innerHTML = '<span class="thinking-label text-xs mr-1">Analysing</span><span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function removeThinking() {
+      const el = document.getElementById('thinking');
+      if (el) el.remove();
+    }
+
+    function appendAnalystBubble(markdown) {
+      const el = document.createElement('div');
+      el.className = 'self-start max-w-3xl w-full msg-analyst border rounded-2xl rounded-bl-sm px-5 py-4';
+      el.innerHTML = `
+        <div class="bubble-label text-xs font-semibold mb-3 uppercase tracking-wide">Analyst Review</div>
+        <div class="prose text-sm">${marked.parse(markdown || '')}</div>
+      `;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function appendMorningNoteBubble(markdown) {
+      const el = document.createElement('div');
+      el.className = 'self-start max-w-3xl w-full msg-morning border rounded-2xl rounded-bl-sm px-5 py-4';
+      el.innerHTML = `
+        <div class="bubble-label text-xs font-semibold mb-3 uppercase tracking-wide">Morning Note</div>
+        <div class="prose text-sm">${marked.parse(markdown || '')}</div>
+      `;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function appendErrorBubble(message) {
+      const el = document.createElement('div');
+      el.className = 'self-start max-w-xl msg-error border rounded-2xl rounded-bl-sm px-4 py-3 text-sm';
+      el.textContent = message || 'An unexpected error occurred.';
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function appendFileBubble(filename) {
+      const el = document.createElement('div');
+      el.className = 'self-end max-w-xl msg-file border rounded-2xl rounded-br-sm px-4 py-3 text-sm flex items-center gap-2';
+      el.innerHTML = `<svg class="w-4 h-4 flex-none file-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg><span>${filename}</span>`;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    async function send() {
+      const text = textInput.value.trim();
+      if (!text && !selectedFile) return;
+
+      if (selectedFile && text) {
+        appendUserMessage(text.length > 120 ? text.slice(0, 120) + '…' : text);
+        appendFileBubble(selectedFile.name);
+      } else if (selectedFile) {
+        appendFileBubble(selectedFile.name);
+      } else {
+        appendUserMessage(text.length > 120 ? text.slice(0, 120) + '…' : text);
+      }
+      setInputsDisabled(true);
+      appendThinking();
+
+      const fd = new FormData();
+      fd.append('text', text);
+      if (selectedFile) fd.append('file', selectedFile);
+      fd.append('company', companyEl.value.trim());
+      fd.append('ticker', tickerEl.value.trim());
+      fd.append('analyst', analystEl.value.trim());
+
+      let jobId;
+      try {
+        const res = await fetch('/api/run', { method: 'POST', body: fd });
+        if (res.status === 413) {
+          removeThinking();
+          appendErrorBubble('File too large. Maximum size is 20 MB.');
+          setInputsDisabled(false);
+          return;
+        }
+        const data = await res.json();
+        if (!res.ok) {
+          removeThinking();
+          appendErrorBubble(data.error || 'Submission failed.');
+          setInputsDisabled(false);
+          return;
+        }
+        jobId = data.job_id;
+      } catch (err) {
+        removeThinking();
+        appendErrorBubble('Network error: ' + err.message);
+        setInputsDisabled(false);
+        return;
+      }
+
+      // Clear inputs after successful submission
+      textInput.value = '';
+      selectedFile = null;
+      fileInput.value = '';
+      fileBadge.classList.add('hidden');
+
+      // Poll
+      polling = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/status/${jobId}`);
+          const job = await res.json();
+
+          if (job.status === 'done') {
+            clearInterval(polling);
+            removeThinking();
+            appendAnalystBubble(job.analyst_markdown);
+            setTimeout(() => {
+              appendMorningNoteBubble(job.morning_note_markdown);
+              setInputsDisabled(false);
+            }, 400);
+          } else if (job.status === 'error') {
+            clearInterval(polling);
+            removeThinking();
+            appendErrorBubble(job.error || 'Workflow error.');
+            setInputsDisabled(false);
+          }
+        } catch (err) {
+          clearInterval(polling);
+          removeThinking();
+          appendErrorBubble('Polling error: ' + err.message);
+          setInputsDisabled(false);
+        }
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

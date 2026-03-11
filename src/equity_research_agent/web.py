@@ -9,6 +9,7 @@ from flask import Flask, jsonify, render_template, request
 
 from .config import Settings
 from .llm import ResearchClient
+from .storage import ArtifactStore
 from .workflow import build_workflow
 
 app = Flask(__name__)
@@ -30,6 +31,13 @@ def _run_worker(job_id: str, raw_input: str, company: str | None, ticker: str | 
                 "analyst": analyst or None,
                 "llm_model": settings.llm_model,
             }
+        )
+        store = ArtifactStore(settings)
+        store.save_local(
+            title=state["title"],
+            analyst_markdown=state["final_analyst_markdown"],
+            morning_note_markdown=state["final_morning_note_markdown"],
+            payload=state["final_payload"],
         )
         _jobs[job_id] = {
             "status": "done",
@@ -55,22 +63,27 @@ def index():
 
 @app.route("/api/run", methods=["POST"])
 def api_run():
-    raw_input = ""
-
+    file_text = ""
     uploaded = request.files.get("file")
     if uploaded and uploaded.filename:
         ext = uploaded.filename.rsplit(".", 1)[-1].lower() if "." in uploaded.filename else ""
         if ext not in ("pdf", "txt"):
             return jsonify({"error": "Only .pdf and .txt files are supported."}), 400
-
         data = uploaded.read()
         if ext == "pdf":
             with pdfplumber.open(BytesIO(data)) as pdf:
-                raw_input = "\n".join(page.extract_text() or "" for page in pdf.pages)
+                file_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
         else:
-            raw_input = data.decode("utf-8", errors="replace")
+            file_text = data.decode("utf-8", errors="replace")
+
+    typed_text = request.form.get("text", "").strip()
+
+    if typed_text and file_text:
+        raw_input = f"[User note]\n{typed_text}\n\n[Document: {uploaded.filename}]\n{file_text}"
+    elif file_text:
+        raw_input = file_text
     else:
-        raw_input = request.form.get("text", "").strip()
+        raw_input = typed_text
 
     if not raw_input.strip():
         return jsonify({"error": "No input text provided."}), 400

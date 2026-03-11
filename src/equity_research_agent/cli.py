@@ -42,12 +42,21 @@ def _extract_pdf_text(path: Path) -> str:
 
 
 def _load_input_text(args: argparse.Namespace) -> str:
-    if args.text:
-        return args.text.strip()
+    file_text = ""
     if args.input_file:
         if args.input_file.suffix.lower() == ".pdf":
-            return _extract_pdf_text(args.input_file)
-        return args.input_file.read_text(encoding="utf-8").strip()
+            file_text = _extract_pdf_text(args.input_file)
+        else:
+            file_text = args.input_file.read_text(encoding="utf-8").strip()
+
+    typed_text = args.text.strip() if args.text else ""
+
+    if typed_text and file_text:
+        return f"[User note]\n{typed_text}\n\n[Document: {args.input_file.name}]\n{file_text}"
+    if file_text:
+        return file_text
+    if typed_text:
+        return typed_text
     if not sys.stdin.isatty():
         return sys.stdin.read().strip()
     raise ValueError("Provide --text, --input-file, or pipe text via stdin.")
