@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import threading
 import uuid
+from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
 
 import pdfplumber
 from flask import Flask, jsonify, render_template, request
@@ -33,7 +36,7 @@ def _run_worker(job_id: str, raw_input: str, company: str | None, ticker: str | 
             }
         )
         store = ArtifactStore(settings)
-        store.save_local(
+        persisted = store.save_local(
             title=state["title"],
             analyst_markdown=state["final_analyst_markdown"],
             morning_note_markdown=state["final_morning_note_markdown"],
@@ -45,6 +48,7 @@ def _run_worker(job_id: str, raw_input: str, company: str | None, ticker: str | 
             "analyst_markdown": state.get("final_analyst_markdown"),
             "morning_note_markdown": state.get("final_morning_note_markdown"),
             "title": state.get("title"),
+            "run_dir": str(persisted.run_dir),
             "error": None,
         }
     except Exception as exc:
@@ -106,6 +110,31 @@ def api_run():
     thread.start()
 
     return jsonify({"job_id": job_id}), 202
+
+
+@app.route("/api/feedback/<job_id>", methods=["POST"])
+def api_feedback(job_id: str):
+    job = _jobs.get(job_id)
+    if job is None or job.get("status") != "done":
+        return jsonify({"error": "Job not found or not complete."}), 404
+
+    data = request.get_json(force=True, silent=True) or {}
+    rating = data.get("rating")
+    critique = data.get("critique", "").strip()
+
+    if not isinstance(rating, int) or not (1 <= rating <= 5):
+        return jsonify({"error": "rating must be an integer 1–5."}), 400
+
+    run_dir = Path(job["run_dir"])
+    feedback = {
+        "rating": rating,
+        "critique": critique or None,
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (run_dir / "feedback.json").write_text(
+        json.dumps(feedback, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return jsonify({"ok": True})
 
 
 @app.route("/api/status/<job_id>")

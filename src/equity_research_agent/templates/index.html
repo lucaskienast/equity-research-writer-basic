@@ -65,6 +65,17 @@
     .msg-thinking .thinking-label { color: #9ca3af; }
     html.dark .msg-thinking .thinking-label { color: #6b7280; }
 
+    /* Bubble: rating */
+    .msg-rating { background: rgba(255,255,255,0.6); border-color: #d1d5db; }
+    .msg-rating .bubble-label { color: #b45309; }
+    html.dark .msg-rating { background: rgba(17,24,39,0.6); border-color: #374151; }
+    html.dark .msg-rating .bubble-label { color: #fbbf24; }
+
+    /* Stars */
+    .star-btn { font-size: 1.5rem; cursor: pointer; color: #d1d5db; transition: color 0.1s; line-height: 1; background: none; border: none; padding: 0 2px; }
+    html.dark .star-btn { color: #4b5563; }
+    .star-btn.lit { color: #f59e0b; }
+
     /* Three-dot bounce */
     @keyframes bounce-dot {
       0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
@@ -347,6 +358,7 @@
             setTimeout(() => {
               appendMorningNoteBubble(job.morning_note_markdown);
               setInputsDisabled(false);
+              setTimeout(() => showRatingPrompt(jobId), 400);
             }, 400);
           } else if (job.status === 'error') {
             clearInterval(polling);
@@ -361,6 +373,83 @@
           setInputsDisabled(false);
         }
       }, 2000);
+    }
+    function showRatingPrompt(jobId) {
+      const bubble = document.createElement('div');
+      bubble.className = 'self-start max-w-sm w-full msg-rating border rounded-2xl rounded-bl-sm px-5 py-4';
+
+      const stars = [1, 2, 3, 4, 5];
+      let selectedRating = 0;
+
+      function renderBubble() {
+        bubble.innerHTML = `
+          <div class="bubble-label text-xs font-semibold mb-3 uppercase tracking-wide">Rate this output</div>
+          <div class="flex gap-1 mb-3" id="starRow">
+            ${stars.map(n => `<button class="star-btn" data-n="${n}" aria-label="${n} star">★</button>`).join('')}
+          </div>
+          <textarea id="critiqueInput" rows="2" placeholder="Optional critique…"
+            class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500 mb-3"></textarea>
+          <div class="flex items-center gap-3">
+            <button id="submitRating"
+              class="bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-black text-sm font-medium rounded-lg px-4 py-1.5 transition-colors"
+              disabled>Submit feedback</button>
+            <button id="skipRating" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">Skip</button>
+          </div>
+        `;
+
+        const starBtns = bubble.querySelectorAll('.star-btn');
+        const submitBtn = bubble.querySelector('#submitRating');
+        const skipBtn = bubble.querySelector('#skipRating');
+
+        function paintStars(hovered) {
+          const threshold = hovered !== null ? hovered : selectedRating;
+          starBtns.forEach(btn => {
+            btn.classList.toggle('lit', parseInt(btn.dataset.n) <= threshold);
+          });
+        }
+
+        starBtns.forEach(btn => {
+          btn.addEventListener('mouseenter', () => paintStars(parseInt(btn.dataset.n)));
+          btn.addEventListener('mouseleave', () => paintStars(null));
+          btn.addEventListener('click', () => {
+            selectedRating = parseInt(btn.dataset.n);
+            paintStars(null);
+            submitBtn.disabled = false;
+          });
+        });
+
+        submitBtn.addEventListener('click', async () => {
+          const critique = bubble.querySelector('#critiqueInput').value.trim();
+          submitBtn.disabled = true;
+          try {
+            const res = await fetch(`/api/feedback/${jobId}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rating: selectedRating, critique }),
+            });
+            if (res.ok) {
+              const filled = '★'.repeat(selectedRating);
+              const empty = '☆'.repeat(5 - selectedRating);
+              bubble.innerHTML = `
+                <div class="bubble-label text-xs font-semibold mb-1 uppercase tracking-wide">Feedback saved</div>
+                <div class="text-amber-500 text-lg leading-none">${filled}<span class="text-gray-300 dark:text-gray-600">${empty}</span></div>
+              `;
+            } else {
+              submitBtn.disabled = false;
+            }
+          } catch {
+            submitBtn.disabled = false;
+          }
+        });
+
+        skipBtn.addEventListener('click', () => {
+          bubble.innerHTML = `<div class="text-xs text-gray-400 dark:text-gray-500">Feedback skipped.</div>`;
+        });
+      }
+
+      renderBubble();
+      chat.appendChild(bubble);
+      scrollToBottom();
     }
   </script>
 </body>
