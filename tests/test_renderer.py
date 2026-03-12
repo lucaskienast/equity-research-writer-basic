@@ -20,10 +20,10 @@ def test_render_markdown_contains_core_sections():
 
     markdown = render_markdown(state)
 
-    assert "# Margins Hold Despite Softer Demand" in markdown
-    assert "## Top bullets" in markdown
-    assert "## The Financials" in markdown
-    assert "## The Outlook" in markdown
+    assert "Margins Hold Despite Softer Demand" in markdown
+    assert "## For Analyst Review" in markdown
+    assert "### The Financials" in markdown
+    assert "### The Outlook" in markdown
 
 
 def test_build_payload_keeps_raw_input():

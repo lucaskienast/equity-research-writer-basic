@@ -21,14 +21,20 @@ ruff check .
 # or
 make lint
 
+# Start the Flask web UI at http://localhost:5000
+make run-web
+# or
+python -m equity_research_agent.web
+
 # Run with inline text
-python -m equity_research_agent.cli --text "..." --company "Acme" --ticker ACM
+python -m equity_research_agent.cli --text "..." --company "Acme" --ticker ACM --analyst "J. Smith"
 
 # Inline run example
 python -m equity_research_agent.cli \
   --input-file examples/Ocado_FY25_Results_Announcement.pdf \
   --company "Ocado Group PLC" \
-  --ticker OCDO
+  --ticker OCDO \
+  --analyst "J. Smith"
 
 # Run from a file
 python -m equity_research_agent.cli --input-file examples/sample_input.txt --company "Acme" --ticker ACM
@@ -44,8 +50,8 @@ This is a deterministic LangGraph workflow that takes raw text (e.g. an RNS, tra
 ### Data flow
 
 ```
-CLI (cli.py) → ClaudeResearchClient (llm.py) → LangGraph workflow (workflow.py)
-  → 10 sequential generation nodes → render_document node
+CLI (cli.py) / Flask UI (web.py) → ResearchClient (llm.py) → LangGraph workflow (workflow.py)
+  → 10 sequential generation nodes → render_document node (produces analyst_review.md + morning_note.md + JSON)
   → ArtifactStore (storage.py) → local output/ dir → optional Azure Blob upload
 ```
 
@@ -70,7 +76,16 @@ To change house style, tone, section structure, or output format, edit the promp
 
 ### LLM client (`llm.py`)
 
-`ClaudeResearchClient` wraps `langchain_anthropic.ChatAnthropic`. Each call sends a fixed `SystemMessage` (base prompt) plus a `HumanMessage` (task-specific prompt with context). The client is stateless — all context accumulates in `ResearchState`.
+`ResearchClient` wraps either `langchain_openai.ChatOpenAI` or `langchain_anthropic.ChatAnthropic` depending on `LLM_PROVIDER`. Each call sends a fixed `SystemMessage` (base prompt) plus a `HumanMessage` (task-specific prompt with context). The client is stateless — all context accumulates in `ResearchState`.
+
+### Web UI (`web.py`)
+
+A Flask application exposing:
+- `GET /` — serves the dark/light mode UI (`templates/index.html`)
+- `POST /api/run` — accepts form fields (`text`, `company`, `ticker`, `analyst`) and an optional file upload (PDF or TXT); starts the workflow in a background thread and returns a `job_id`
+- `GET /api/status/<job_id>` — returns job status (`running` | `done` | `error`) and the generated markdown once complete
+
+Jobs run asynchronously via `threading.Thread`, so the UI can poll for results without blocking.
 
 ### Config (`config.py`)
 
@@ -78,10 +93,12 @@ To change house style, tone, section structure, or output format, edit the promp
 
 | Variable | Default |
 |---|---|
-| `ANTHROPIC_API_KEY` | (required) |
-| `ANTHROPIC_MODEL` | `claude-sonnet-4-6` |
-| `ANTHROPIC_TEMPERATURE` | `0.1` |
-| `ANTHROPIC_MAX_TOKENS` | `1400` |
+| `LLM_PROVIDER` | `openai` (`openai` or `anthropic`) |
+| `LLM_MODEL` | `gpt-4o-mini` |
+| `LLM_TEMPERATURE` | `0.1` |
+| `LLM_MAX_TOKENS` | `1400` |
+| `OPENAI_API_KEY` | (required when `LLM_PROVIDER=openai`) |
+| `ANTHROPIC_API_KEY` | (required when `LLM_PROVIDER=anthropic`) |
 | `AZURE_STORAGE_CONNECTION_STRING` | (required for upload) |
 | `AZURE_BLOB_CONTAINER` | `equity-research-output` |
 | `UPLOAD_TO_AZURE` | `false` |
@@ -89,7 +106,13 @@ To change house style, tone, section structure, or output format, edit the promp
 
 ### Output (`renderer.py`, `storage.py`)
 
-`render_markdown()` and `build_payload()` in `renderer.py` assemble the final Markdown and JSON from all state fields. `ArtifactStore` in `storage.py` writes a timestamped directory under `output/` (e.g. `output/20260301T101500Z-acme-demand-slows/`) containing `research_note.md` and `research_note.json`, and optionally uploads both to Azure Blob Storage using the path convention `{prefix}/YYYY/MM/DD/{run-id}/`.
+`renderer.py` assembles three output artifacts from all state fields. `ArtifactStore` in `storage.py` writes a timestamped directory under `output/` (e.g. `output/20260301T101500Z-acme-demand-slows/`) containing:
+
+- `analyst_review.md` — full structured note for the analyst
+- `morning_note.md` — condensed morning note format
+- `research_note.json` — machine-readable JSON payload
+
+Optionally uploads all three to Azure Blob Storage using the path convention `{prefix}/YYYY/MM/DD/{run-id}/`.
 
 ## Package layout
 
