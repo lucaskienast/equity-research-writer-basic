@@ -6,6 +6,11 @@ from typing import Any
 from .models import ResearchState
 
 
+def _escape_dollars(text: str) -> str:
+    """Escape bare $ so Markdown renderers don't treat them as LaTeX math delimiters."""
+    return text.replace("$", r"\$")
+
+
 def _build_header(state: ResearchState) -> str:
     company_line = []
     if state.get("company"):
@@ -33,13 +38,13 @@ def render_analyst_markdown(state: ResearchState) -> str:
         "## For Analyst Review",
         "",
         "### High-level summary bullets",
-        state["summary_bullets"],
+        _escape_dollars(state["summary_bullets"]),
         "",
         "### Unobvious points",
-        state["unobvious_points"],
+        _escape_dollars(state["unobvious_points"]),
         "",
         "### The Spark",
-        state["spark"],
+        _escape_dollars(state["spark"]),
         "</div>",
     ])
     return "\n\n".join([header, body]).strip() + "\n"
@@ -58,25 +63,25 @@ def render_morning_note_markdown(state: ResearchState) -> str:
         "\n".join([
             '<div style="background-color: #e8f5e9; padding: 16px; border-radius: 8px; border: 1px solid #a5d6a7; margin: 16px 0;">',
             "",
-            f"### {state['title']}",
+            f"### {_escape_dollars(state['title'])}",
             "",
-            state["top_bullets"],
+            _escape_dollars(state["top_bullets"]),
             "",
-            state["executive_summary"],
+            _escape_dollars(state["executive_summary"]),
             "</div>",
         ]),
         "",
         "### The Financials",
-        state["financials"],
+        _escape_dollars(state["financials"]),
         "",
         "### The Commercial",
-        state["commercial"],
+        _escape_dollars(state["commercial"]),
         "",
         "### The Segments",
-        state["segments"],
+        _escape_dollars(state["segments"]),
         "",
         "### The Outlook",
-        state["outlook"],
+        _escape_dollars(state["outlook"]),
     ]
     return "\n".join(part for part in sections if part is not None).strip() + "\n"
 
@@ -107,13 +112,13 @@ def render_markdown(state: ResearchState) -> str:
             "## For Analyst Review",
             "",
             "### High-level summary bullets",
-            state["summary_bullets"],
+            _escape_dollars(state["summary_bullets"]),
             "",
             "### Unobvious points",
-            state["unobvious_points"],
+            _escape_dollars(state["unobvious_points"]),
             "",
             "### The Spark",
-            state["spark"],
+            _escape_dollars(state["spark"]),
             "</div>",
         ]),
         "",
@@ -126,25 +131,25 @@ def render_markdown(state: ResearchState) -> str:
         "\n".join([
             '<div style="background-color: #e8f5e9; padding: 16px; border-radius: 8px; border: 1px solid #a5d6a7; margin: 16px 0;">',
             "",
-            f"### {state['title']}",
+            f"### {_escape_dollars(state['title'])}",
             "",
-            state["top_bullets"],
+            _escape_dollars(state["top_bullets"]),
             "",
-            state["executive_summary"],
+            _escape_dollars(state["executive_summary"]),
             "</div>",
         ]),
         "",
         "### The Financials",
-        state["financials"],
+        _escape_dollars(state["financials"]),
         "",
         "### The Commercial",
-        state["commercial"],
+        _escape_dollars(state["commercial"]),
         "",
         "### The Segments",
-        state["segments"],
+        _escape_dollars(state["segments"]),
         "",
         "### The Outlook",
-        state["outlook"],
+        _escape_dollars(state["outlook"]),
     ]
     return "\n".join(part for part in sections if part is not None).strip() + "\n"
 
@@ -165,11 +170,11 @@ def render_document_sections_markdown(state: ResearchState) -> str | None:
     for key in section_order:
         if key in sections and sections[key].strip():
             title = key.replace("_", " ").title()
-            parts.append(f"## {title}\n\n{sections[key].strip()}")
+            parts.append(f"## {title}\n\n{_escape_dollars(sections[key].strip())}")
     for key in sorted(sections):
         if key not in section_order and sections[key].strip():
             title = key.replace("_", " ").title()
-            parts.append(f"## {title}\n\n{sections[key].strip()}")
+            parts.append(f"## {title}\n\n{_escape_dollars(sections[key].strip())}")
     return "\n\n".join(parts).strip() + "\n"
 
 
