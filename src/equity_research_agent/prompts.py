@@ -282,8 +282,8 @@ an investment action.
 
 THE_TITLE_PROMPT = """
 ### Request settings:\n
-Your task is to help simplify technical news to a generalist audience. It must be more than 4 and less than 8 words in 
-total. Do not use the company's name in the title. It should not include any quantitative financial metrics, but can 
+Your task is to help simplify technical news to a generalist audience. It must be more than 4 and less than 8 words in
+total. Do not use the company's name in the title. It should not include any quantitative financial metrics, but can
 include qualitative financial commentary.
 \n\n
 ### Key additional information:\n
@@ -295,14 +295,103 @@ Previously created: 'The Three Bullets'
 Previously created: 'The Summary'
 \n\n
 ### Request:\n
-Craft a concise and compelling title that reflects the one of the document and the key additional information 
-mentioned above. This title servers as the subject line of the email that is sent out, which means it is the first 
-thing that the sophisticated investor audience sees, hence it should be crafted to maximise the open rate of the 
+Craft a concise and compelling title that reflects the one of the document and the key additional information
+mentioned above. This title servers as the subject line of the email that is sent out, which means it is the first
+thing that the sophisticated investor audience sees, hence it should be crafted to maximise the open rate of the
 email.\n
 \n\n
 ### Goal:\n
 The singular goal is to entice the sophisticated investor audience to open the email to find out more about the news.
 """
+
+SPLIT_DOCUMENT_PROMPT = """
+### Task:\n
+Partition the source document into exactly five named sections using the markers shown below. Every piece of content
+must appear in exactly one section. Text that does not fit cleanly into sections 2–5 should go into KEY_HIGHLIGHTS.
+\n\n
+### Section definitions:\n
+[SECTION: KEY_HIGHLIGHTS] — Headline results, executive summary, CEO/CFO quotes, and key metrics called out at the
+top of the document.\n
+[SECTION: FINANCIAL_RESULTS] — Income statement, balance sheet, cash flow statement, margins, EPS, net debt/cash,
+dividend, and all numerical guidance versus prior expectations.\n
+[SECTION: COMMERCIAL_UPDATE] — Customer/client trends, new wins, churn, pricing, product or service launches,
+partnerships, market share, and strategic pipeline.\n
+[SECTION: SEGMENT_PERFORMANCE] — Divisional or geographic breakdown: revenue, profit, and operational KPIs per
+reporting segment.\n
+[SECTION: OUTLOOK_GUIDANCE] — All forward-looking statements: management guidance, FY targets, current trading
+commentary, and macro outlook.\n
+\n\n
+### Formatting rules:\n
+\n
+**Prose text:** Copy verbatim. Do not paraphrase, summarise, or omit any sentence.\n
+\n
+**Tabular and columnar data:** Convert to a well-formed Markdown table. Apply this to any content that is structured
+as rows and columns — including income statements, balance sheets, cash flow statements, KPI summary grids, divisional
+breakdowns, and any other data presented in aligned columns in the source.\n
+\n
+Detection: treat content as tabular if it has two or more columns of data repeating across multiple rows, even if the
+source uses whitespace alignment, tabs, or implicit structure rather than explicit separators.\n
+\n
+Markdown table rules:\n
+- First row is always a header row separated by `| --- |` dividers.\n
+- Use a 'Metric' column as the left-most column for row labels.\n
+- Align numeric columns to the right using `:---:` or `---:` as appropriate.\n
+- Preserve all units exactly as they appear in the source (£m, $m, %, pence, x, bps, etc.).\n
+- Preserve all period labels exactly (FY24, FY25, H1 25, 1H24, LFL, etc.).\n
+- If a cell value is not reported, use `—`.\n
+- Do not merge rows or columns.\n
+- Do not add footnotes or commentary inside the table.\n
+\n
+Example — source text:\n
+```\n
+Revenue        1,204.3   1,142.1    +5.4%\n
+Adj. EBITDA      312.1     289.4    +7.8%\n
+Adj. EBITDA margin  25.9%   25.3%   +60bps\n
+Adj. EPS (p)      48.2      44.1    +9.3%\n
+```\n
+Becomes:\n
+```\n
+| Metric | FY25 | FY24 | Change |\n
+| :--- | ---: | ---: | ---: |\n
+| Revenue | 1,204.3 | 1,142.1 | +5.4% |\n
+| Adj. EBITDA | 312.1 | 289.4 | +7.8% |\n
+| Adj. EBITDA margin | 25.9% | 25.3% | +60bps |\n
+| Adj. EPS (p) | 48.2 | 44.1 | +9.3% |\n
+```\n
+\n\n
+### Output format:\n
+[SECTION: KEY_HIGHLIGHTS]
+<content>
+
+[SECTION: FINANCIAL_RESULTS]
+<content>
+
+[SECTION: COMMERCIAL_UPDATE]
+<content>
+
+[SECTION: SEGMENT_PERFORMANCE]
+<content>
+
+[SECTION: OUTLOOK_GUIDANCE]
+<content>
+\n\n
+### Important:\n
+Output only the five labelled sections. Do not add introductions, explanations, or commentary outside the sections.
+"""
+
+TASK_DOCUMENT_SECTIONS: dict[str, list[str]] = {
+    "summary_bullets":  ["KEY_HIGHLIGHTS", "FINANCIAL_RESULTS", "COMMERCIAL_UPDATE", "SEGMENT_PERFORMANCE", "OUTLOOK_GUIDANCE"],
+    "unobvious_points": ["KEY_HIGHLIGHTS", "FINANCIAL_RESULTS", "COMMERCIAL_UPDATE", "SEGMENT_PERFORMANCE", "OUTLOOK_GUIDANCE"],
+    "spark":            ["KEY_HIGHLIGHTS"],
+    "financials":       ["FINANCIAL_RESULTS"],
+    "commercial":       ["COMMERCIAL_UPDATE"],
+    "segments":         ["SEGMENT_PERFORMANCE"],
+    "outlook":          ["OUTLOOK_GUIDANCE"],
+    "top_bullets":      [],
+    "executive_summary": [],
+    "title":            [],
+}
+
 
 def _metadata_lines(state: ResearchState) -> str:
     lines = []
@@ -335,13 +424,33 @@ def build_task_prompt(task_name: str, instructions: str, state: ResearchState, c
     ]
     if metadata:
         pieces.append("Metadata:\n" + metadata)
-    pieces.append("Source text:\n" + state["raw_input"].strip())
+
+    doc_sections = state.get("document_sections")
+    wanted = TASK_DOCUMENT_SECTIONS.get(task_name)
+
+    if wanted is not None and doc_sections:
+        if wanted:
+            doc_text = "\n\n".join(
+                f"[{sec}]\n{doc_sections[sec]}"
+                for sec in wanted
+                if sec in doc_sections and doc_sections[sec].strip()
+            )
+            if doc_text:
+                pieces.append("Source text:\n" + doc_text)
+        # empty list → intentionally omit document
+    else:
+        # fallback: sections not available or task not in mapping
+        pieces.append("Source text:\n" + state["raw_input"].strip())
+
     if context:
         pieces.append("Previously generated context:\n" + context)
     return "\n\n".join(pieces)
 
-# TODO: clear in-prompt labeling of what is financial, commercial, segmental, outlook etc sections? or just kinda inferred?
 TASK_SPECS = {
+    "split_document": {
+        "context": [],
+        "instructions": SPLIT_DOCUMENT_PROMPT,
+    },
     "summary_bullets": {
         "context": [],
         "instructions": HIGH_LEVEL_SUMMARY_BULLETS_PROMPT,

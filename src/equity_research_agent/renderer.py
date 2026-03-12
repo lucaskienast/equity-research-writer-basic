@@ -149,6 +149,30 @@ def render_markdown(state: ResearchState) -> str:
     return "\n".join(part for part in sections if part is not None).strip() + "\n"
 
 
+def render_document_sections_markdown(state: ResearchState) -> str | None:
+    sections = state.get("document_sections")
+    if not sections:
+        return None
+    header = _build_header(state)
+    section_order = [
+        "KEY_HIGHLIGHTS",
+        "FINANCIAL_RESULTS",
+        "COMMERCIAL_UPDATE",
+        "SEGMENT_PERFORMANCE",
+        "OUTLOOK_GUIDANCE",
+    ]
+    parts = [header, "# Document sections"]
+    for key in section_order:
+        if key in sections and sections[key].strip():
+            title = key.replace("_", " ").title()
+            parts.append(f"## {title}\n\n{sections[key].strip()}")
+    for key in sorted(sections):
+        if key not in section_order and sections[key].strip():
+            title = key.replace("_", " ").title()
+            parts.append(f"## {title}\n\n{sections[key].strip()}")
+    return "\n\n".join(parts).strip() + "\n"
+
+
 def build_payload(state: ResearchState) -> dict[str, Any]:
     return {
         "title": state["title"],

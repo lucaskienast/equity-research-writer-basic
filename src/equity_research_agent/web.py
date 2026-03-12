@@ -38,6 +38,7 @@ def _run_worker(job_id: str, raw_input: str, company: str | None, ticker: str | 
             analyst_markdown=state["final_analyst_markdown"],
             morning_note_markdown=state["final_morning_note_markdown"],
             payload=state["final_payload"],
+            document_sections_markdown=state.get("final_document_sections_markdown"),
         )
         _jobs[job_id] = {
             "status": "done",

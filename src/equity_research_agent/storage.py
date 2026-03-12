@@ -16,6 +16,7 @@ class PersistedArtifacts:
     analyst_markdown_path: Path
     morning_note_markdown_path: Path
     json_path: Path
+    document_sections_path: Path | None = None
     azure_urls: dict[str, str] | None = None
 
 
@@ -29,7 +30,14 @@ class ArtifactStore:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def save_local(self, title: str, analyst_markdown: str, morning_note_markdown: str, payload: dict) -> PersistedArtifacts:
+    def save_local(
+        self,
+        title: str,
+        analyst_markdown: str,
+        morning_note_markdown: str,
+        payload: dict,
+        document_sections_markdown: str | None = None,
+    ) -> PersistedArtifacts:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         slug = _simple_slugify(title)[:60]
         run_dir = self.settings.local_output_dir / f"{timestamp}-{slug}"
@@ -43,11 +51,17 @@ class ArtifactStore:
         morning_note_markdown_path.write_text(morning_note_markdown, encoding="utf-8")
         json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
+        document_sections_path: Path | None = None
+        if document_sections_markdown:
+            document_sections_path = run_dir / "document_sections.md"
+            document_sections_path.write_text(document_sections_markdown, encoding="utf-8")
+
         return PersistedArtifacts(
             run_dir=run_dir,
             analyst_markdown_path=analyst_markdown_path,
             morning_note_markdown_path=morning_note_markdown_path,
             json_path=json_path,
+            document_sections_path=document_sections_path,
         )
 
     def upload(self, persisted: PersistedArtifacts) -> dict[str, str]:
@@ -65,12 +79,16 @@ class ArtifactStore:
         except ResourceExistsError:
             pass
 
-        uploads: dict[str, str] = {}
-        for label, path, content_type in [
+        candidates = [
             ("analyst_markdown", persisted.analyst_markdown_path, "text/markdown"),
             ("morning_note_markdown", persisted.morning_note_markdown_path, "text/markdown"),
             ("json", persisted.json_path, "application/json"),
-        ]:
+        ]
+        if persisted.document_sections_path:
+            candidates.append(("document_sections", persisted.document_sections_path, "text/markdown"))
+
+        uploads: dict[str, str] = {}
+        for label, path, content_type in candidates:
             blob_name = f"{prefix}/{timestamp}/{persisted.run_dir.name}/{path.name}"
             blob_client = container.get_blob_client(blob_name)
             with path.open("rb") as fh:

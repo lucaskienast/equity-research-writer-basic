@@ -91,12 +91,15 @@ def main() -> None:
             analyst_markdown=state["final_analyst_markdown"],
             morning_note_markdown=state["final_morning_note_markdown"],
             payload=state["final_payload"],
+            document_sections_markdown=state.get("final_document_sections_markdown"),
         )
 
         console.print(Panel.fit(state["final_markdown"], title="Generated research note"))
         console.print(f"\nSaved analyst review: [green]{persisted.analyst_markdown_path}[/green]")
         console.print(f"Saved morning note:   [green]{persisted.morning_note_markdown_path}[/green]")
         console.print(f"Saved JSON:           [green]{persisted.json_path}[/green]")
+        if persisted.document_sections_path:
+            console.print(f"Saved doc sections:   [green]{persisted.document_sections_path}[/green]")
 
         should_upload = args.upload or settings.upload_to_azure
         if should_upload:

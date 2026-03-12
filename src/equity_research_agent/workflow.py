@@ -1,12 +1,44 @@
 from __future__ import annotations
 
+import re
 from typing import Callable
 
 from langgraph.graph import END, START, StateGraph
 
 from .llm import ResearchClient, ClaudeResearchClient
 from .models import ResearchState
-from .renderer import build_payload, render_markdown, render_analyst_markdown, render_morning_note_markdown
+from .renderer import build_payload, render_markdown, render_analyst_markdown, render_morning_note_markdown, render_document_sections_markdown
+
+_SECTION_RE = re.compile(r'\[SECTION:\s*([A-Z_]+)\]', re.MULTILINE)
+
+_SPLIT_CHAR_THRESHOLD = 12_000  # ~3,000 tokens
+
+
+def _parse_document_sections(text: str) -> dict[str, str]:
+    parts = _SECTION_RE.split(text)
+    # parts alternates: [preamble, name1, body1, name2, body2, ...]
+    sections: dict[str, str] = {}
+    it = iter(parts[1:])  # skip preamble
+    for name, body in zip(it, it):
+        sections[name.strip()] = body.strip()
+    return sections
+
+
+def _split_document_node(client: ClaudeResearchClient) -> Callable[[ResearchState], ResearchState]:
+    def _node(state: ResearchState) -> ResearchState:
+        raw = state.get("raw_input", "")
+        if len(raw) < _SPLIT_CHAR_THRESHOLD:
+            return {"document_sections": None}
+        try:
+            output = client.generate("split_document", state)
+            sections = _parse_document_sections(output)
+            if len(sections) < 2:
+                return {"document_sections": None}
+            return {"document_sections": sections}
+        except Exception:
+            return {"document_sections": None}
+
+    return _node
 
 
 def _make_generation_node(client: ClaudeResearchClient, task_key: str) -> Callable[[ResearchState], ResearchState]:
@@ -21,16 +53,20 @@ def _render_node(state: ResearchState) -> ResearchState:
     payload = build_payload(state)
     analyst_md = render_analyst_markdown(state)
     morning_note_md = render_morning_note_markdown(state)
+    sections_md = render_document_sections_markdown(state)
     return {
         "final_markdown": markdown,
         "final_payload": payload,
         "final_analyst_markdown": analyst_md,
         "final_morning_note_markdown": morning_note_md,
+        "final_document_sections_markdown": sections_md,
     }
 
 
 def build_workflow(client: ResearchClient):
     graph = StateGraph(ResearchState)
+
+    graph.add_node("split_document", _split_document_node(client))
 
     ordered_tasks = [
         "summary_bullets",
@@ -50,7 +86,8 @@ def build_workflow(client: ResearchClient):
 
     graph.add_node("render_document", _render_node)
 
-    graph.add_edge(START, ordered_tasks[0])
+    graph.add_edge(START, "split_document")
+    graph.add_edge("split_document", ordered_tasks[0])
     for left, right in zip(ordered_tasks, ordered_tasks[1:]):
         graph.add_edge(left, right)
     graph.add_edge(ordered_tasks[-1], "render_document")
