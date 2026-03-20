@@ -13,7 +13,7 @@ from flask import Flask, jsonify, render_template, request
 from .config import Settings
 from .llm import ResearchClient
 from .storage import ArtifactStore
-from .workflow import build_workflow
+from .workflow import build_workflow, build_phase1_workflow, build_phase2_workflow
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
@@ -21,11 +21,16 @@ app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
 _jobs: dict[str, dict] = {}
 
 
-def _run_worker(job_id: str, raw_input: str, company: str | None, ticker: str | None, analyst: str | None) -> None:
+def _public_job(job: dict) -> dict:
+    return {k: v for k, v in job.items() if not k.startswith("_")}
+
+
+def _run_phase1_worker(job_id: str, raw_input: str, company: str | None, ticker: str | None, analyst: str | None) -> None:
     try:
         settings = Settings()
         client = ResearchClient(settings)
-        workflow = build_workflow(client)
+        _jobs[job_id]["_client"] = client
+        workflow = build_phase1_workflow(client)
         state = workflow.invoke(
             {
                 "raw_input": raw_input,
@@ -35,6 +40,25 @@ def _run_worker(job_id: str, raw_input: str, company: str | None, ticker: str | 
                 "llm_model": settings.llm_model,
             }
         )
+        _jobs[job_id]["status"] = "awaiting_approval"
+        _jobs[job_id]["analyst_markdown"] = state.get("final_analyst_markdown")
+        _jobs[job_id]["_state"] = state
+    except Exception as exc:
+        _jobs[job_id]["status"] = "error"
+        _jobs[job_id]["error"] = str(exc)
+        _jobs[job_id]["_client"] = None
+        _jobs[job_id]["_state"] = None
+
+
+def _run_phase2_worker(job_id: str) -> None:
+    job = _jobs[job_id]
+    state = job["_state"]
+    client = job["_client"]
+    try:
+        _jobs[job_id]["status"] = "phase2_running"
+        workflow = build_phase2_workflow(client)
+        state = workflow.invoke(state)
+        settings = Settings()
         store = ArtifactStore(settings)
         persisted = store.save_local(
             title=state["title"],
@@ -43,22 +67,18 @@ def _run_worker(job_id: str, raw_input: str, company: str | None, ticker: str | 
             payload=state["final_payload"],
             document_sections_markdown=state.get("final_document_sections_markdown"),
         )
-        _jobs[job_id] = {
-            "status": "done",
-            "analyst_markdown": state.get("final_analyst_markdown"),
-            "morning_note_markdown": state.get("final_morning_note_markdown"),
-            "title": state.get("title"),
-            "run_dir": str(persisted.run_dir),
-            "error": None,
-        }
+        _jobs[job_id]["status"] = "done"
+        _jobs[job_id]["morning_note_markdown"] = state.get("final_morning_note_markdown")
+        _jobs[job_id]["analyst_markdown"] = state.get("final_analyst_markdown")
+        _jobs[job_id]["title"] = state.get("title")
+        _jobs[job_id]["run_dir"] = str(persisted.run_dir)
+        _jobs[job_id]["_state"] = None
+        _jobs[job_id]["_client"] = None
     except Exception as exc:
-        _jobs[job_id] = {
-            "status": "error",
-            "analyst_markdown": None,
-            "morning_note_markdown": None,
-            "title": None,
-            "error": str(exc),
-        }
+        _jobs[job_id]["status"] = "error"
+        _jobs[job_id]["error"] = str(exc)
+        _jobs[job_id]["_state"] = None
+        _jobs[job_id]["_client"] = None
 
 
 @app.route("/")
@@ -103,13 +123,38 @@ def api_run():
         "analyst_markdown": None,
         "morning_note_markdown": None,
         "title": None,
+        "run_dir": None,
         "error": None,
+        "_state": None,
+        "_client": None,
     }
 
-    thread = threading.Thread(target=_run_worker, args=(job_id, raw_input, company, ticker, analyst), daemon=True)
+    thread = threading.Thread(target=_run_phase1_worker, args=(job_id, raw_input, company, ticker, analyst), daemon=True)
     thread.start()
 
     return jsonify({"job_id": job_id}), 202
+
+
+@app.route("/api/approve/<job_id>", methods=["POST"])
+def api_approve(job_id: str):
+    job = _jobs.get(job_id)
+    if job is None:
+        return jsonify({"error": "Job not found."}), 404
+    if job.get("status") != "awaiting_approval":
+        return jsonify({"error": "Job is not awaiting approval."}), 409
+
+    data = request.get_json(force=True, silent=True) or {}
+    approved = data.get("approved", False)
+
+    if approved:
+        thread = threading.Thread(target=_run_phase2_worker, args=(job_id,), daemon=True)
+        thread.start()
+    else:
+        job["status"] = "cancelled"
+        job["_state"] = None
+        job["_client"] = None
+
+    return jsonify({"ok": True})
 
 
 @app.route("/api/feedback/<job_id>", methods=["POST"])
@@ -142,7 +187,7 @@ def api_status(job_id: str):
     job = _jobs.get(job_id)
     if job is None:
         return jsonify({"error": "Job not found."}), 404
-    return jsonify(job)
+    return jsonify(_public_job(job))
 
 
 @app.errorhandler(413)

@@ -83,6 +83,24 @@
     html.dark .star-btn { color: #4b5563; }
     .star-btn.lit { color: #f59e0b; }
 
+    /* Bubble: approval */
+    .msg-approval { background: rgba(255,255,255,0.6); border-color: #d1d5db; }
+    .msg-approval .bubble-label { color: #4f46e5; }
+    html.dark .msg-approval { background: rgba(17,24,39,0.6); border-color: #374151; }
+    html.dark .msg-approval .bubble-label { color: #818cf8; }
+
+    /* Bubble: cancelled */
+    .msg-cancelled { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
+    html.dark .msg-cancelled { background: #1f2937; border-color: #374151; color: #9ca3af; }
+
+    /* Approval action buttons */
+    .btn-approve { background: #10b981; color: #fff; }
+    .btn-approve:hover:not(:disabled) { background: #059669; }
+    .btn-decline { background: #6b7280; color: #fff; }
+    .btn-decline:hover:not(:disabled) { background: #4b5563; }
+    .btn-approve, .btn-decline { border: none; border-radius: 0.5rem; padding: 0.375rem 1rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+    .btn-approve:disabled, .btn-decline:disabled { opacity: 0.5; cursor: not-allowed; }
+
     /* Three-dot bounce */
     @keyframes bounce-dot {
       0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
@@ -200,6 +218,7 @@
 
     let selectedFile = null;
     let polling = null;
+    let phase2ThinkingShown = false;
 
     // File selection
     fileInput.addEventListener('change', () => {
@@ -236,6 +255,10 @@
       sendBtn.classList.toggle('opacity-50', disabled);
     }
 
+    function setInputsEnabled() {
+      setInputsDisabled(false);
+    }
+
     function scrollToBottom() {
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
@@ -248,11 +271,11 @@
       scrollToBottom();
     }
 
-    function appendThinking() {
+    function appendThinking(label) {
       const el = document.createElement('div');
       el.id = 'thinking';
       el.className = 'self-start flex items-center gap-1.5 msg-thinking border rounded-2xl rounded-bl-sm px-4 py-3';
-      el.innerHTML = '<span class="thinking-label text-xs mr-1">Analysing</span><span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+      el.innerHTML = `<span class="thinking-label text-xs mr-1">${label || 'Analysing'}</span><span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
       chat.appendChild(el);
       scrollToBottom();
     }
@@ -261,6 +284,10 @@
       const el = document.getElementById('thinking');
       if (el) el.remove();
     }
+
+    // Alias used in new polling state machine
+    const appendThinkingBubble = appendThinking;
+    const removeThinkingBubble = removeThinking;
 
     function appendAnalystBubble(markdown) {
       const el = document.createElement('div');
@@ -300,9 +327,114 @@
       scrollToBottom();
     }
 
+    function appendApprovalPrompt(jobId) {
+      const el = document.createElement('div');
+      el.className = 'self-start max-w-sm w-full msg-approval border rounded-2xl rounded-bl-sm px-5 py-4';
+      el.innerHTML = `
+        <div class="bubble-label text-xs font-semibold mb-3 uppercase tracking-wide">Analyst Gate</div>
+        <p class="text-sm mb-4">Would you like to proceed with the morning note?</p>
+        <div class="flex gap-3">
+          <button id="approveBtn" class="btn-approve">Yes, proceed</button>
+          <button id="declineBtn" class="btn-decline">No, cancel</button>
+        </div>
+      `;
+      chat.appendChild(el);
+      scrollToBottom();
+
+      const approveBtn = el.querySelector('#approveBtn');
+      const declineBtn = el.querySelector('#declineBtn');
+
+      async function handleDecision(approved) {
+        approveBtn.disabled = true;
+        declineBtn.disabled = true;
+        try {
+          await fetch(`/api/approve/${jobId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approved }),
+          });
+        } catch (err) {
+          appendErrorBubble('Network error: ' + err.message);
+          setInputsEnabled();
+          return;
+        }
+        if (approved) {
+          appendThinkingBubble('Generating morning note…');
+          phase2ThinkingShown = true;
+          startPolling(jobId);
+        } else {
+          appendCancelledBubble();
+          setInputsEnabled();
+        }
+      }
+
+      approveBtn.addEventListener('click', () => handleDecision(true));
+      declineBtn.addEventListener('click', () => handleDecision(false));
+    }
+
+    function appendCancelledBubble() {
+      const el = document.createElement('div');
+      el.className = 'self-start max-w-xl msg-cancelled border rounded-2xl rounded-bl-sm px-4 py-3 text-sm';
+      el.textContent = 'Analysis cancelled. You can submit a new document above.';
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function startPolling(jobId) {
+      polling = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/status/${jobId}`);
+          const job = await res.json();
+          const status = job.status;
+
+          if (status === 'running') {
+            // keep polling
+
+          } else if (status === 'awaiting_approval') {
+            clearInterval(polling);
+            removeThinkingBubble();
+            appendAnalystBubble(job.analyst_markdown);
+            setTimeout(() => appendApprovalPrompt(jobId), 400);
+
+          } else if (status === 'phase2_running') {
+            if (!phase2ThinkingShown) {
+              phase2ThinkingShown = true;
+              appendThinkingBubble('Generating morning note…');
+            }
+            // keep polling
+
+          } else if (status === 'done') {
+            clearInterval(polling);
+            removeThinkingBubble();
+            appendMorningNoteBubble(job.morning_note_markdown);
+            setInputsEnabled();
+            setTimeout(() => showRatingPrompt(jobId), 400);
+
+          } else if (status === 'cancelled') {
+            clearInterval(polling);
+            appendCancelledBubble();
+            setInputsEnabled();
+
+          } else if (status === 'error') {
+            clearInterval(polling);
+            removeThinkingBubble();
+            appendErrorBubble(job.error || 'Workflow error.');
+            setInputsEnabled();
+          }
+        } catch (err) {
+          clearInterval(polling);
+          removeThinkingBubble();
+          appendErrorBubble('Polling error: ' + err.message);
+          setInputsEnabled();
+        }
+      }, 2000);
+    }
+
     async function send() {
       const text = textInput.value.trim();
       if (!text && !selectedFile) return;
+
+      phase2ThinkingShown = false;
 
       if (selectedFile && text) {
         appendUserMessage(text.length > 120 ? text.slice(0, 120) + '…' : text);
@@ -352,34 +484,7 @@
       fileInput.value = '';
       fileBadge.classList.add('hidden');
 
-      // Poll
-      polling = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/status/${jobId}`);
-          const job = await res.json();
-
-          if (job.status === 'done') {
-            clearInterval(polling);
-            removeThinking();
-            appendAnalystBubble(job.analyst_markdown);
-            setTimeout(() => {
-              appendMorningNoteBubble(job.morning_note_markdown);
-              setInputsDisabled(false);
-              setTimeout(() => showRatingPrompt(jobId), 400);
-            }, 400);
-          } else if (job.status === 'error') {
-            clearInterval(polling);
-            removeThinking();
-            appendErrorBubble(job.error || 'Workflow error.');
-            setInputsDisabled(false);
-          }
-        } catch (err) {
-          clearInterval(polling);
-          removeThinking();
-          appendErrorBubble('Polling error: ' + err.message);
-          setInputsDisabled(false);
-        }
-      }, 2000);
+      startPolling(jobId);
     }
     function showRatingPrompt(jobId) {
       const bubble = document.createElement('div');

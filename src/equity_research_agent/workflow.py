@@ -63,6 +63,47 @@ def _render_node(state: ResearchState) -> ResearchState:
     }
 
 
+PHASE1_TASKS = ["summary_bullets", "unobvious_points", "spark"]
+PHASE2_TASKS = ["financials", "commercial", "segments", "outlook", "top_bullets", "executive_summary", "title"]
+
+
+def _render_analyst_node(state: ResearchState) -> dict:
+    from .renderer import render_analyst_markdown
+    return {"final_analyst_markdown": render_analyst_markdown(state)}
+
+
+def build_phase1_workflow(client: ResearchClient):
+    graph = StateGraph(ResearchState)
+    graph.add_node("split_document", _split_document_node(client))
+    for task in PHASE1_TASKS:
+        graph.add_node(task, _make_generation_node(client, task))
+    graph.add_node("render_analyst", _render_analyst_node)
+
+    graph.add_edge(START, "split_document")
+    graph.add_edge("split_document", PHASE1_TASKS[0])
+    for left, right in zip(PHASE1_TASKS, PHASE1_TASKS[1:]):
+        graph.add_edge(left, right)
+    graph.add_edge(PHASE1_TASKS[-1], "render_analyst")
+    graph.add_edge("render_analyst", END)
+
+    return graph.compile()
+
+
+def build_phase2_workflow(client: ResearchClient):
+    graph = StateGraph(ResearchState)
+    for task in PHASE2_TASKS:
+        graph.add_node(task, _make_generation_node(client, task))
+    graph.add_node("render_document", _render_node)
+
+    graph.add_edge(START, PHASE2_TASKS[0])
+    for left, right in zip(PHASE2_TASKS, PHASE2_TASKS[1:]):
+        graph.add_edge(left, right)
+    graph.add_edge(PHASE2_TASKS[-1], "render_document")
+    graph.add_edge("render_document", END)
+
+    return graph.compile()
+
+
 def build_workflow(client: ResearchClient):
     graph = StateGraph(ResearchState)
 
