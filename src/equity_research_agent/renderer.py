@@ -33,7 +33,7 @@ def _build_header(state: ResearchState) -> str:
 def render_analyst_markdown(state: ResearchState) -> str:
     header = _build_header(state)
     body = "\n".join([
-        '<div style="background-color: #fffde7; padding: 16px; border-radius: 8px; border: 1px solid #fff176; margin: 16px 0;">',
+        '<div class="analyst-box">',
         "",
         "## For Analyst Review",
         "",
@@ -61,7 +61,7 @@ def render_morning_note_markdown(state: ResearchState) -> str:
         "",
         f"## {state.get('company', '')}",
         "\n".join([
-            '<div style="background-color: #e8f5e9; padding: 16px; border-radius: 8px; border: 1px solid #a5d6a7; margin: 16px 0;">',
+            '<div class="morning-box">',
             "",
             f"### {_escape_dollars(state['title'])}",
             "",
@@ -107,7 +107,7 @@ def render_markdown(state: ResearchState) -> str:
         f"**Generated:** {generated_at}",
         "",
         "\n".join([
-            '<div style="background-color: #fffde7; padding: 16px; border-radius: 8px; border: 1px solid #fff176; margin: 16px 0;">',
+            '<div class="analyst-box">',
             "",
             "## For Analyst Review",
             "",
@@ -129,7 +129,7 @@ def render_markdown(state: ResearchState) -> str:
         "",
         f"## {state.get('company', '')}",
         "\n".join([
-            '<div style="background-color: #e8f5e9; padding: 16px; border-radius: 8px; border: 1px solid #a5d6a7; margin: 16px 0;">',
+            '<div class="morning-box">',
             "",
             f"### {_escape_dollars(state['title'])}",
             "",
