@@ -190,6 +190,88 @@ def api_status(job_id: str):
     return jsonify(_public_job(job))
 
 
+@app.route("/api/history")
+def api_history():
+    import re
+    settings = Settings()
+    output_dir = Path(settings.local_output_dir)
+    if not output_dir.exists():
+        return jsonify([])
+
+    pattern = re.compile(r"^(\d{8}T\d{6}Z)-(.+)$")
+    runs = []
+    for d in output_dir.iterdir():
+        if not d.is_dir():
+            continue
+        m = pattern.match(d.name)
+        if not m:
+            continue
+        ts_str, _ = m.group(1), m.group(2)
+        json_path = d / "research_note.json"
+        if not json_path.exists():
+            continue
+        try:
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        # parse date: 20260320T160336Z → 20/03/2026
+        date_fmt = f"{ts_str[6:8]}/{ts_str[4:6]}/{ts_str[0:4]}"
+        runs.append({
+            "run_id": d.name,
+            "company": data.get("company") or "",
+            "ticker": data.get("ticker") or "",
+            "title": data.get("title") or "",
+            "date": date_fmt,
+            "_ts": ts_str,
+        })
+
+    runs.sort(key=lambda r: r["_ts"], reverse=True)
+    for r in runs:
+        del r["_ts"]
+    return jsonify(runs)
+
+
+@app.route("/api/history/<run_id>")
+def api_history_run(run_id: str):
+    import re
+    # Prevent path traversal: only allow safe directory names
+    if not re.match(r"^[\w\-]+$", run_id):
+        return jsonify({"error": "Invalid run_id."}), 400
+
+    settings = Settings()
+    run_dir = Path(settings.local_output_dir) / run_id
+    if not run_dir.is_dir():
+        return jsonify({"error": "Run not found."}), 404
+
+    analyst_md = (run_dir / "analyst_review.md").read_text(encoding="utf-8") if (run_dir / "analyst_review.md").exists() else ""
+    morning_md = (run_dir / "morning_note.md").read_text(encoding="utf-8") if (run_dir / "morning_note.md").exists() else ""
+
+    json_path = run_dir / "research_note.json"
+    meta = {}
+    if json_path.exists():
+        try:
+            meta = json.loads(json_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    feedback = None
+    feedback_path = run_dir / "feedback.json"
+    if feedback_path.exists():
+        try:
+            feedback = json.loads(feedback_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    return jsonify({
+        "analyst_markdown": analyst_md,
+        "morning_note_markdown": morning_md,
+        "title": meta.get("title") or "",
+        "company": meta.get("company") or "",
+        "ticker": meta.get("ticker") or "",
+        "feedback": feedback,
+    })
+
+
 @app.errorhandler(413)
 def request_entity_too_large(e):
     return jsonify({"error": "File too large. Maximum size is 20 MB."}), 413

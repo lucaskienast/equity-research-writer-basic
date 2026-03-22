@@ -110,13 +110,46 @@
     html.dark .dot { background: #6b7280; }
     .dot:nth-child(2) { animation-delay: 0.2s; }
     .dot:nth-child(3) { animation-delay: 0.4s; }
+    /* Sidebar */
+    #sidebar {
+      width: 220px;
+      min-width: 220px;
+      background: #f3f4f6;
+      border-right: 1px solid #e5e7eb;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    html.dark #sidebar {
+      background: #111827;
+      border-right-color: #1f2937;
+    }
+    #historyList li button {
+      width: 100%;
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: #374151;
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-radius: 0.375rem;
+      transition: background 0.12s;
+      word-break: break-word;
+    }
+    html.dark #historyList li button { color: #d1d5db; }
+    #historyList li button:hover { background: #e5e7eb; }
+    html.dark #historyList li button:hover { background: #1f2937; }
+    #historyList li button.active { background: #fef3c7; color: #92400e; font-weight: 600; }
+    html.dark #historyList li button.active { background: #1c1a0f; color: #fbbf24; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col text-gray-900 dark:text-gray-100">
+<body class="h-screen flex flex-col text-gray-900 dark:text-gray-100 overflow-hidden">
 
   <!-- Header -->
   <header class="border-b border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/70 backdrop-blur sticky top-0 z-10">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+    <div class="px-4 py-3 flex items-center justify-between gap-2">
       <span class="text-lg font-semibold tracking-tight">Equity Research Writer</span>
       <button id="themeToggle" title="Toggle theme"
         class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors p-1 rounded-md">
@@ -124,13 +157,31 @@
     </div>
   </header>
 
+  <!-- Body: sidebar + main -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">History</div>
+      <div class="px-2 pb-2">
+        <button id="newAnalysisBtn"
+          class="w-full text-left px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+          + New analysis
+        </button>
+      </div>
+      <ul id="historyList" class="flex-1 px-1 pb-4 flex flex-col gap-0.5"></ul>
+    </aside>
+
+    <!-- Main column -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+
   <!-- Chat area -->
   <main class="flex-1 overflow-y-auto pb-56">
     <div id="chat" class="max-w-4xl mx-auto px-4 py-6 flex flex-col gap-4"></div>
   </main>
 
   <!-- Sticky input panel -->
-  <div class="fixed bottom-0 inset-x-0 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-800">
+  <div id="inputPanel" class="fixed bottom-0 left-[220px] right-0 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-800">
     <div class="max-w-4xl mx-auto px-4 py-3">
 
       <!-- Collapsible metadata row -->
@@ -184,8 +235,12 @@
     </div>
   </div>
 
+    </div><!-- /main column -->
+  </div><!-- /flex body -->
+
   <script>
     const chat = document.getElementById('chat');
+    const historyList = document.getElementById('historyList');
     const textInput = document.getElementById('textInput');
     const sendBtn = document.getElementById('sendBtn');
     const fileInput = document.getElementById('fileInput');
@@ -198,6 +253,20 @@
 
     const themeToggle = document.getElementById('themeToggle');
     const htmlEl = document.documentElement;
+    const inputPanel = document.getElementById('inputPanel');
+    const mainEl = document.querySelector('main');
+
+    function hideInputPanel() {
+      inputPanel.classList.add('hidden');
+      mainEl.classList.remove('pb-56');
+      mainEl.classList.add('pb-6');
+    }
+
+    function showInputPanel() {
+      inputPanel.classList.remove('hidden');
+      mainEl.classList.remove('pb-6');
+      mainEl.classList.add('pb-56');
+    }
 
     function applyTheme(dark) {
       htmlEl.classList.toggle('dark', dark);
@@ -219,6 +288,84 @@
     let selectedFile = null;
     let polling = null;
     let phase2ThinkingShown = false;
+    let activeRunId = null;
+
+    // ── Sidebar history ──────────────────────────────────────────────────────
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/history');
+        if (!res.ok) return;
+        const runs = await res.json();
+        historyList.innerHTML = '';
+        if (!runs.length) {
+          const li = document.createElement('li');
+          li.innerHTML = '<span class="px-3 py-2 text-xs text-gray-400 dark:text-gray-600 block">No previous runs</span>';
+          historyList.appendChild(li);
+          return;
+        }
+        runs.forEach(run => {
+          const li = document.createElement('li');
+          const btn = document.createElement('button');
+          btn.dataset.runId = run.run_id;
+          const label = run.company
+            ? `${run.company}${run.ticker ? ' (' + run.ticker + ')' : ''}\n${run.date}`
+            : (run.title || run.run_id);
+          btn.textContent = label;
+          btn.style.whiteSpace = 'pre-line';
+          if (run.run_id === activeRunId) btn.classList.add('active');
+          btn.addEventListener('click', () => openHistoryRun(run.run_id));
+          li.appendChild(btn);
+          historyList.appendChild(li);
+        });
+      } catch (e) {
+        // silently ignore
+      }
+    }
+
+    async function openHistoryRun(runId) {
+      hideInputPanel();
+      activeRunId = runId;
+      // highlight active item in sidebar
+      historyList.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      historyList.querySelectorAll('button[data-run-id="' + runId + '"]').forEach(b => b.classList.add('active'));
+
+      chat.innerHTML = '';
+      const loading = document.createElement('div');
+      loading.className = 'self-start flex items-center gap-1.5 msg-thinking border rounded-2xl rounded-bl-sm px-4 py-3';
+      loading.innerHTML = '<span class="thinking-label text-xs mr-1">Loading</span><span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+      chat.appendChild(loading);
+
+      try {
+        const res = await fetch(`/api/history/${runId}`);
+        loading.remove();
+        if (!res.ok) {
+          appendErrorBubble('Could not load this run.');
+          return;
+        }
+        const data = await res.json();
+        if (data.analyst_markdown) appendAnalystBubble(data.analyst_markdown);
+        if (data.analyst_markdown && data.morning_note_markdown) {
+          appendHistoryApprovalBubble();
+        }
+        if (data.morning_note_markdown) appendMorningNoteBubble(data.morning_note_markdown);
+        if (data.feedback && data.feedback.rating) {
+          appendHistoryRatingBubble(data.feedback);
+        }
+      } catch (e) {
+        loading.remove();
+        appendErrorBubble('Network error: ' + e.message);
+      }
+    }
+
+    loadHistory();
+
+    document.getElementById('newAnalysisBtn').addEventListener('click', () => {
+      activeRunId = null;
+      historyList.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      chat.innerHTML = '';
+      showInputPanel();
+      textInput.focus();
+    });
 
     // File selection
     fileInput.addEventListener('change', () => {
@@ -311,6 +458,35 @@
       scrollToBottom();
     }
 
+    function appendHistoryApprovalBubble() {
+      const el = document.createElement('div');
+      el.className = 'self-start max-w-sm w-full msg-approval border rounded-2xl rounded-bl-sm px-5 py-4';
+      el.innerHTML = `
+        <div class="bubble-label text-xs font-semibold mb-3 uppercase tracking-wide">Analyst Gate</div>
+        <p class="text-sm mb-4">Would you like to proceed with the morning note?</p>
+        <div class="flex gap-3">
+          <button class="btn-approve opacity-60 cursor-default" disabled>Yes, proceed</button>
+          <button class="btn-decline opacity-40 cursor-default" disabled>No, cancel</button>
+        </div>
+      `;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
+    function appendHistoryRatingBubble(feedback) {
+      const el = document.createElement('div');
+      el.className = 'self-start max-w-sm w-full msg-rating border rounded-2xl rounded-bl-sm px-5 py-4';
+      const filled = '★'.repeat(feedback.rating);
+      const empty = '☆'.repeat(5 - feedback.rating);
+      el.innerHTML = `
+        <div class="bubble-label text-xs font-semibold mb-1 uppercase tracking-wide">Feedback saved</div>
+        <div class="text-amber-500 text-lg leading-none mb-2">${filled}<span class="text-gray-300 dark:text-gray-600">${empty}</span></div>
+        ${feedback.critique ? `<p class="text-sm text-gray-500 dark:text-gray-400 italic">${feedback.critique}</p>` : ''}
+      `;
+      chat.appendChild(el);
+      scrollToBottom();
+    }
+
     function appendErrorBubble(message) {
       const el = document.createElement('div');
       el.className = 'self-start max-w-xl msg-error border rounded-2xl rounded-bl-sm px-4 py-3 text-sm';
@@ -355,7 +531,6 @@
           });
         } catch (err) {
           appendErrorBubble('Network error: ' + err.message);
-          setInputsEnabled();
           return;
         }
         if (approved) {
@@ -364,7 +539,6 @@
           startPolling(jobId);
         } else {
           appendCancelledBubble();
-          setInputsEnabled();
         }
       }
 
@@ -375,7 +549,7 @@
     function appendCancelledBubble() {
       const el = document.createElement('div');
       el.className = 'self-start max-w-xl msg-cancelled border rounded-2xl rounded-bl-sm px-4 py-3 text-sm';
-      el.textContent = 'Analysis cancelled. You can submit a new document above.';
+      el.textContent = 'Analysis cancelled.';
       chat.appendChild(el);
       scrollToBottom();
     }
@@ -407,25 +581,22 @@
             clearInterval(polling);
             removeThinkingBubble();
             appendMorningNoteBubble(job.morning_note_markdown);
-            setInputsEnabled();
+            loadHistory();
             setTimeout(() => showRatingPrompt(jobId), 400);
 
           } else if (status === 'cancelled') {
             clearInterval(polling);
             appendCancelledBubble();
-            setInputsEnabled();
 
           } else if (status === 'error') {
             clearInterval(polling);
             removeThinkingBubble();
             appendErrorBubble(job.error || 'Workflow error.');
-            setInputsEnabled();
           }
         } catch (err) {
           clearInterval(polling);
           removeThinkingBubble();
           appendErrorBubble('Polling error: ' + err.message);
-          setInputsEnabled();
         }
       }, 2000);
     }
@@ -484,6 +655,7 @@
       fileInput.value = '';
       fileBadge.classList.add('hidden');
 
+      hideInputPanel();
       startPolling(jobId);
     }
     function showRatingPrompt(jobId) {
