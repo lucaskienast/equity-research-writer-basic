@@ -287,7 +287,6 @@
     });
 
     let selectedFile = null;
-    let polling = null;
     let phase2ThinkingShown = false;
     let activeRunId = null;
 
@@ -422,16 +421,14 @@
 
     function appendThinking(label) {
       const el = document.createElement('div');
-      el.id = 'thinking';
-      el.className = 'self-start flex items-center gap-1.5 msg-thinking border rounded-2xl rounded-bl-sm px-4 py-3';
+      el.className = 'thinking-bubble self-start flex items-center gap-1.5 msg-thinking border rounded-2xl rounded-bl-sm px-4 py-3';
       el.innerHTML = `<span class="thinking-label text-xs mr-1">${label || 'Analysing'}</span><span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
       chat.appendChild(el);
       scrollToBottom();
     }
 
     function removeThinking() {
-      const el = document.getElementById('thinking');
-      if (el) el.remove();
+      chat.querySelectorAll('.thinking-bubble').forEach(el => el.remove());
     }
 
     // Alias used in new polling state machine
@@ -536,8 +533,6 @@
           return;
         }
         if (approved) {
-          appendThinkingBubble('Generating morning note…');
-          phase2ThinkingShown = true;
           startPolling(jobId);
         } else {
           appendCancelledBubble();
@@ -557,17 +552,16 @@
     }
 
     function startPolling(jobId) {
-      polling = setInterval(async () => {
+      async function poll() {
         try {
           const res = await fetch(`/api/status/${jobId}`);
           const job = await res.json();
           const status = job.status;
 
           if (status === 'running') {
-            // keep polling
+            setTimeout(poll, 2000);
 
           } else if (status === 'awaiting_approval') {
-            clearInterval(polling);
             removeThinkingBubble();
             appendAnalystBubble(job.analyst_markdown);
             setTimeout(() => appendApprovalPrompt(jobId), 400);
@@ -577,30 +571,27 @@
               phase2ThinkingShown = true;
               appendThinkingBubble('Generating morning note…');
             }
-            // keep polling
+            setTimeout(poll, 2000);
 
           } else if (status === 'done') {
-            clearInterval(polling);
             removeThinkingBubble();
             appendMorningNoteBubble(job.morning_note_markdown);
             loadHistory();
             setTimeout(() => showRatingPrompt(jobId), 400);
 
           } else if (status === 'cancelled') {
-            clearInterval(polling);
             appendCancelledBubble();
 
           } else if (status === 'error') {
-            clearInterval(polling);
             removeThinkingBubble();
             appendErrorBubble(job.error || 'Workflow error.');
           }
         } catch (err) {
-          clearInterval(polling);
           removeThinkingBubble();
           appendErrorBubble('Polling error: ' + err.message);
         }
-      }, 2000);
+      }
+      poll();
     }
 
     async function send() {
