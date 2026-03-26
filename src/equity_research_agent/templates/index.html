@@ -90,6 +90,18 @@
     html.dark .msg-approval { background: rgba(17,24,39,0.6); border-color: #374151; }
     html.dark .msg-approval .bubble-label { color: #818cf8; }
 
+    /* Perspective toggle */
+    .perspective-toggle { display: inline-flex; border-radius: 0.5rem; overflow: hidden; border: 1px solid #d1d5db; margin-bottom: 0.75rem; }
+    html.dark .perspective-toggle { border-color: #374151; }
+    .perspective-toggle button { padding: 0.25rem 0.75rem; font-size: 0.7rem; font-weight: 500; cursor: pointer; border: none; background: transparent; color: #6b7280; transition: background 0.12s, color 0.12s; text-transform: uppercase; letter-spacing: 0.04em; }
+    html.dark .perspective-toggle button { color: #9ca3af; }
+    .perspective-toggle button:hover { background: #f3f4f6; }
+    html.dark .perspective-toggle button:hover { background: #1f2937; }
+    .perspective-toggle button.active { background: #f59e0b; color: #000; }
+    html.dark .perspective-toggle button.active { background: #d97706; color: #000; }
+    .perspective-toggle button:not(:last-child) { border-right: 1px solid #d1d5db; }
+    html.dark .perspective-toggle button:not(:last-child) { border-right-color: #374151; }
+
     /* Bubble: cancelled */
     .msg-cancelled { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
     html.dark .msg-cancelled { background: #1f2937; border-color: #374151; color: #9ca3af; }
@@ -343,11 +355,11 @@
           return;
         }
         const data = await res.json();
-        if (data.analyst_markdown) appendAnalystBubble(data.analyst_markdown);
+        if (data.analyst_markdown) appendAnalystBubble(data.analyst_markdown, data.optimist_analyst_markdown, data.pessimist_analyst_markdown);
         if (data.analyst_markdown && data.morning_note_markdown) {
           appendHistoryApprovalBubble();
         }
-        if (data.morning_note_markdown) appendMorningNoteBubble(data.morning_note_markdown);
+        if (data.morning_note_markdown) appendMorningNoteBubble(data.morning_note_markdown, data.optimist_morning_note_markdown, data.pessimist_morning_note_markdown);
         if (data.feedback && data.feedback.rating) {
           appendHistoryRatingBubble(data.feedback);
         }
@@ -435,24 +447,53 @@
     const appendThinkingBubble = appendThinking;
     const removeThinkingBubble = removeThinking;
 
-    function appendAnalystBubble(markdown) {
+    function _buildToggleHtml(id) {
+      return `<div class="perspective-toggle" data-toggle-id="${id}">
+        <button data-perspective="optimist">Optimist</button>
+        <button data-perspective="judge" class="active">Judge</button>
+        <button data-perspective="pessimist">Pessimist</button>
+      </div>`;
+    }
+
+    function _wireToggle(el, variants) {
+      const toggle = el.querySelector('.perspective-toggle');
+      if (!toggle) return;
+      const contentDiv = el.querySelector('.prose');
+      toggle.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-perspective]');
+        if (!btn) return;
+        const perspective = btn.dataset.perspective;
+        const md = variants[perspective] || '';
+        contentDiv.innerHTML = marked.parse(md);
+        toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    }
+
+    function appendAnalystBubble(markdown, optimist, pessimist) {
+      const hasDebate = optimist || pessimist;
       const el = document.createElement('div');
       el.className = 'self-start max-w-3xl w-full msg-analyst border rounded-2xl rounded-bl-sm px-5 py-4';
       el.innerHTML = `
         <div class="bubble-label text-xs font-semibold mb-3 uppercase tracking-wide">Analyst Review</div>
+        ${hasDebate ? _buildToggleHtml('analyst') : ''}
         <div class="prose text-sm">${marked.parse(markdown || '')}</div>
       `;
+      if (hasDebate) _wireToggle(el, { optimist: optimist || '', judge: markdown || '', pessimist: pessimist || '' });
       chat.appendChild(el);
       scrollToBottom();
     }
 
-    function appendMorningNoteBubble(markdown) {
+    function appendMorningNoteBubble(markdown, optimist, pessimist) {
+      const hasDebate = optimist || pessimist;
       const el = document.createElement('div');
       el.className = 'self-start max-w-3xl w-full msg-morning border rounded-2xl rounded-bl-sm px-5 py-4';
       el.innerHTML = `
         <div class="bubble-label text-xs font-semibold mb-3 uppercase tracking-wide">Morning Note</div>
+        ${hasDebate ? _buildToggleHtml('morning') : ''}
         <div class="prose text-sm">${marked.parse(markdown || '')}</div>
       `;
+      if (hasDebate) _wireToggle(el, { optimist: optimist || '', judge: markdown || '', pessimist: pessimist || '' });
       chat.appendChild(el);
       scrollToBottom();
     }
@@ -563,7 +604,7 @@
 
           } else if (status === 'awaiting_approval') {
             removeThinkingBubble();
-            appendAnalystBubble(job.analyst_markdown);
+            appendAnalystBubble(job.analyst_markdown, job.optimist_analyst_markdown, job.pessimist_analyst_markdown);
             setTimeout(() => appendApprovalPrompt(jobId), 400);
 
           } else if (status === 'phase2_running') {
@@ -575,7 +616,7 @@
 
           } else if (status === 'done') {
             removeThinkingBubble();
-            appendMorningNoteBubble(job.morning_note_markdown);
+            appendMorningNoteBubble(job.morning_note_markdown, job.optimist_morning_note_markdown, job.pessimist_morning_note_markdown);
             loadHistory();
             setTimeout(() => showRatingPrompt(jobId), 400);
 

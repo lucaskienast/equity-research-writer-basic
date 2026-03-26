@@ -56,6 +56,8 @@ def _run_phase1_worker(job_id: str, raw_input: str, company: str | None, ticker:
 
         _jobs[job_id]["status"] = "awaiting_approval"
         _jobs[job_id]["analyst_markdown"] = state.get("final_analyst_markdown")
+        _jobs[job_id]["optimist_analyst_markdown"] = state.get("debate_optimist_analyst_markdown")
+        _jobs[job_id]["pessimist_analyst_markdown"] = state.get("debate_pessimist_analyst_markdown")
         _jobs[job_id]["run_dir"] = str(persisted.run_dir)
         _jobs[job_id]["_state"] = state
     except Exception as exc:
@@ -93,6 +95,10 @@ def _run_phase2_worker(job_id: str) -> None:
         _jobs[job_id]["status"] = "done"
         _jobs[job_id]["morning_note_markdown"] = state.get("final_morning_note_markdown")
         _jobs[job_id]["analyst_markdown"] = state.get("final_analyst_markdown")
+        _jobs[job_id]["optimist_analyst_markdown"] = state.get("debate_optimist_analyst_markdown")
+        _jobs[job_id]["pessimist_analyst_markdown"] = state.get("debate_pessimist_analyst_markdown")
+        _jobs[job_id]["optimist_morning_note_markdown"] = state.get("debate_optimist_morning_note_markdown")
+        _jobs[job_id]["pessimist_morning_note_markdown"] = state.get("debate_pessimist_morning_note_markdown")
         _jobs[job_id]["title"] = state.get("title")
         _jobs[job_id]["run_dir"] = str(persisted.run_dir)
         _jobs[job_id]["_state"] = None
@@ -149,6 +155,10 @@ def api_run():
         "status": "running",
         "analyst_markdown": None,
         "morning_note_markdown": None,
+        "optimist_analyst_markdown": None,
+        "pessimist_analyst_markdown": None,
+        "optimist_morning_note_markdown": None,
+        "pessimist_morning_note_markdown": None,
         "title": None,
         "run_dir": None,
         "error": None,
@@ -272,8 +282,12 @@ def api_history_run(run_id: str):
     if not run_dir.is_dir():
         return jsonify({"error": "Run not found."}), 404
 
-    analyst_md = (run_dir / "analyst_review.md").read_text(encoding="utf-8") if (run_dir / "analyst_review.md").exists() else ""
-    morning_md = (run_dir / "morning_note.md").read_text(encoding="utf-8") if (run_dir / "morning_note.md").exists() else ""
+    def _read_if_exists(filename: str) -> str | None:
+        p = run_dir / filename
+        return p.read_text(encoding="utf-8") if p.exists() else None
+
+    analyst_md = _read_if_exists("analyst_review.md") or ""
+    morning_md = _read_if_exists("morning_note.md") or ""
 
     json_path = run_dir / "research_note.json"
     meta = {}
@@ -294,6 +308,10 @@ def api_history_run(run_id: str):
     return jsonify({
         "analyst_markdown": analyst_md,
         "morning_note_markdown": morning_md,
+        "optimist_analyst_markdown": _read_if_exists("analyst_review_optimist.md"),
+        "pessimist_analyst_markdown": _read_if_exists("analyst_review_pessimist.md"),
+        "optimist_morning_note_markdown": _read_if_exists("morning_note_optimist.md"),
+        "pessimist_morning_note_markdown": _read_if_exists("morning_note_pessimist.md"),
         "title": meta.get("title") or "",
         "company": meta.get("company") or "",
         "ticker": meta.get("ticker") or "",
