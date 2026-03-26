@@ -97,8 +97,12 @@
     html.dark .perspective-toggle button { color: #9ca3af; }
     .perspective-toggle button:hover { background: #f3f4f6; }
     html.dark .perspective-toggle button:hover { background: #1f2937; }
-    .perspective-toggle button.active { background: #f59e0b; color: #000; }
-    html.dark .perspective-toggle button.active { background: #d97706; color: #000; }
+    .perspective-toggle button.active[data-perspective="optimist"] { background: #10b981; color: #fff; }
+    .perspective-toggle button.active[data-perspective="judge"] { background: #3b82f6; color: #fff; }
+    .perspective-toggle button.active[data-perspective="pessimist"] { background: #ef4444; color: #fff; }
+    html.dark .perspective-toggle button.active[data-perspective="optimist"] { background: #059669; }
+    html.dark .perspective-toggle button.active[data-perspective="judge"] { background: #2563eb; }
+    html.dark .perspective-toggle button.active[data-perspective="pessimist"] { background: #dc2626; }
     .perspective-toggle button:not(:last-child) { border-right: 1px solid #d1d5db; }
     html.dark .perspective-toggle button:not(:last-child) { border-right-color: #374151; }
 
