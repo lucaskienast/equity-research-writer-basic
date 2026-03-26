@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from typing_extensions import TypedDict
+
+
+def _merge_dicts(left: dict[str, str], right: dict[str, str]) -> dict[str, str]:
+    return {**left, **right}
 
 
 class ResearchState(TypedDict, total=False):
@@ -27,3 +31,13 @@ class ResearchState(TypedDict, total=False):
     final_analyst_markdown: str
     final_morning_note_markdown: str
     final_document_sections_markdown: str | None
+    # Debate mode: per-task outputs for each perspective (accumulated across nodes)
+    debate_optimist: Annotated[dict[str, str], _merge_dicts]
+    debate_pessimist: Annotated[dict[str, str], _merge_dicts]
+    # Rendered debate outputs (set by render node)
+    debate_optimist_analyst_markdown: str
+    debate_optimist_morning_note_markdown: str
+    debate_optimist_payload: dict[str, Any]
+    debate_pessimist_analyst_markdown: str
+    debate_pessimist_morning_note_markdown: str
+    debate_pessimist_payload: dict[str, Any]

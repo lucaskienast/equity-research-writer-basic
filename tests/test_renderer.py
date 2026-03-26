@@ -22,8 +22,8 @@ def test_render_markdown_contains_core_sections():
 
     assert "Margins Hold Despite Softer Demand" in markdown
     assert "## For Analyst Review" in markdown
-    assert "### The Financials" in markdown
-    assert "### The Outlook" in markdown
+    assert "### [Financials]" in markdown
+    assert "### [Outlook]" in markdown
 
 
 def test_build_payload_keeps_raw_input():

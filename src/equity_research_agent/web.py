@@ -40,8 +40,23 @@ def _run_phase1_worker(job_id: str, raw_input: str, company: str | None, ticker:
                 "llm_model": settings.llm_model,
             }
         )
+
+        # Save phase 1 outputs + source inputs immediately
+        store = ArtifactStore(settings)
+        persisted = store.save_local(
+            title=company or "analyst-review",
+            analyst_markdown=state.get("final_analyst_markdown"),
+            raw_input_text=raw_input,
+            source_file_bytes=_jobs[job_id].get("_source_file_bytes"),
+            source_file_name=_jobs[job_id].get("_source_file_name"),
+            document_sections_markdown=state.get("final_document_sections_markdown"),
+            optimist_analyst_markdown=state.get("debate_optimist_analyst_markdown"),
+            pessimist_analyst_markdown=state.get("debate_pessimist_analyst_markdown"),
+        )
+
         _jobs[job_id]["status"] = "awaiting_approval"
         _jobs[job_id]["analyst_markdown"] = state.get("final_analyst_markdown")
+        _jobs[job_id]["run_dir"] = str(persisted.run_dir)
         _jobs[job_id]["_state"] = state
     except Exception as exc:
         _jobs[job_id]["status"] = "error"
@@ -60,12 +75,20 @@ def _run_phase2_worker(job_id: str) -> None:
         state = workflow.invoke(state)
         settings = Settings()
         store = ArtifactStore(settings)
+        existing_run_dir = Path(job["run_dir"]) if job.get("run_dir") else None
         persisted = store.save_local(
             title=state["title"],
             analyst_markdown=state["final_analyst_markdown"],
             morning_note_markdown=state["final_morning_note_markdown"],
             payload=state["final_payload"],
             document_sections_markdown=state.get("final_document_sections_markdown"),
+            optimist_analyst_markdown=state.get("debate_optimist_analyst_markdown"),
+            optimist_morning_note_markdown=state.get("debate_optimist_morning_note_markdown"),
+            optimist_payload=state.get("debate_optimist_payload"),
+            pessimist_analyst_markdown=state.get("debate_pessimist_analyst_markdown"),
+            pessimist_morning_note_markdown=state.get("debate_pessimist_morning_note_markdown"),
+            pessimist_payload=state.get("debate_pessimist_payload"),
+            run_dir=existing_run_dir,
         )
         _jobs[job_id]["status"] = "done"
         _jobs[job_id]["morning_note_markdown"] = state.get("final_morning_note_markdown")
@@ -89,12 +112,16 @@ def index():
 @app.route("/api/run", methods=["POST"])
 def api_run():
     file_text = ""
+    source_file_bytes: bytes | None = None
+    source_file_name: str | None = None
     uploaded = request.files.get("file")
     if uploaded and uploaded.filename:
         ext = uploaded.filename.rsplit(".", 1)[-1].lower() if "." in uploaded.filename else ""
         if ext not in ("pdf", "txt"):
             return jsonify({"error": "Only .pdf and .txt files are supported."}), 400
         data = uploaded.read()
+        source_file_bytes = data
+        source_file_name = uploaded.filename
         if ext == "pdf":
             with pdfplumber.open(BytesIO(data)) as pdf:
                 file_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
@@ -127,6 +154,8 @@ def api_run():
         "error": None,
         "_state": None,
         "_client": None,
+        "_source_file_bytes": source_file_bytes,
+        "_source_file_name": source_file_name,
     }
 
     thread = threading.Thread(target=_run_phase1_worker, args=(job_id, raw_input, company, ticker, analyst), daemon=True)

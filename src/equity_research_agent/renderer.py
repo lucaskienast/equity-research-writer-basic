@@ -6,9 +6,9 @@ from typing import Any
 from .models import ResearchState
 
 
-def _escape_dollars(text: str) -> str:
-    """Escape bare $ so Markdown renderers don't treat them as LaTeX math delimiters."""
-    return text.replace("$", r"\$")
+def _escape_markdown_chars(text: str) -> str:
+    """Escape chars that Markdown renderers misinterpret in financial text."""
+    return text.replace("$", r"\$").replace("~", r"\~")
 
 
 def _build_header(state: ResearchState) -> str:
@@ -33,18 +33,18 @@ def _build_header(state: ResearchState) -> str:
 def render_analyst_markdown(state: ResearchState) -> str:
     header = _build_header(state)
     body = "\n".join([
-        '<div class="analyst-box">',
+        '<div class="analyst-box" style="background-color:#fffde7;padding:16px;border-radius:8px;border:1px solid #fff176;margin:16px 0">',
         "",
         "## For Analyst Review",
         "",
         "### High-level summary bullets",
-        _escape_dollars(state["summary_bullets"]),
+        _escape_markdown_chars(state["summary_bullets"]),
         "",
         "### Unobvious points",
-        _escape_dollars(state["unobvious_points"]),
+        _escape_markdown_chars(state["unobvious_points"]),
         "",
         "### The Spark",
-        _escape_dollars(state["spark"]),
+        _escape_markdown_chars(state["spark"]),
         "</div>",
     ])
     return "\n\n".join([header, body]).strip() + "\n"
@@ -61,27 +61,27 @@ def render_morning_note_markdown(state: ResearchState) -> str:
         "",
         f"## {state.get('company', '')}",
         "\n".join([
-            '<div class="morning-box">',
+            '<div class="morning-box" style="background-color:#e8f5e9;padding:16px;border-radius:8px;border:1px solid #a5d6a7;margin:16px 0">',
             "",
-            f"### {_escape_dollars(state['title'])}",
+            f"### {_escape_markdown_chars(state['title'])}",
             "",
-            _escape_dollars(state["top_bullets"]),
+            _escape_markdown_chars(state["top_bullets"]),
             "",
-            _escape_dollars(state["executive_summary"]),
+            _escape_markdown_chars(state["executive_summary"]),
             "</div>",
         ]),
         "",
-        "### The Financials",
-        _escape_dollars(state["financials"]),
+        "### [Financials]",
+        _escape_markdown_chars(state["financials"]),
         "",
-        "### The Commercial",
-        _escape_dollars(state["commercial"]),
+        "### [Commercial]",
+        _escape_markdown_chars(state["commercial"]),
         "",
-        "### The Segments",
-        _escape_dollars(state["segments"]),
+        "### [Segments]",
+        _escape_markdown_chars(state["segments"]),
         "",
-        "### The Outlook",
-        _escape_dollars(state["outlook"]),
+        "### [Outlook]",
+        _escape_markdown_chars(state["outlook"]),
     ]
     return "\n".join(part for part in sections if part is not None).strip() + "\n"
 
@@ -107,18 +107,18 @@ def render_markdown(state: ResearchState) -> str:
         f"**Generated:** {generated_at}",
         "",
         "\n".join([
-            '<div class="analyst-box">',
+            '<div class="analyst-box" style="background-color:#fffde7;padding:16px;border-radius:8px;border:1px solid #fff176;margin:16px 0">',
             "",
             "## For Analyst Review",
             "",
             "### High-level summary bullets",
-            _escape_dollars(state["summary_bullets"]),
+            _escape_markdown_chars(state["summary_bullets"]),
             "",
             "### Unobvious points",
-            _escape_dollars(state["unobvious_points"]),
+            _escape_markdown_chars(state["unobvious_points"]),
             "",
             "### The Spark",
-            _escape_dollars(state["spark"]),
+            _escape_markdown_chars(state["spark"]),
             "</div>",
         ]),
         "",
@@ -129,27 +129,27 @@ def render_markdown(state: ResearchState) -> str:
         "",
         f"## {state.get('company', '')}",
         "\n".join([
-            '<div class="morning-box">',
+            '<div class="morning-box" style="background-color:#e8f5e9;padding:16px;border-radius:8px;border:1px solid #a5d6a7;margin:16px 0">',
             "",
-            f"### {_escape_dollars(state['title'])}",
+            f"### {_escape_markdown_chars(state['title'])}",
             "",
-            _escape_dollars(state["top_bullets"]),
+            _escape_markdown_chars(state["top_bullets"]),
             "",
-            _escape_dollars(state["executive_summary"]),
+            _escape_markdown_chars(state["executive_summary"]),
             "</div>",
         ]),
         "",
-        "### The Financials",
-        _escape_dollars(state["financials"]),
+        "### [Financials]",
+        _escape_markdown_chars(state["financials"]),
         "",
-        "### The Commercial",
-        _escape_dollars(state["commercial"]),
+        "### [Commercial]",
+        _escape_markdown_chars(state["commercial"]),
         "",
-        "### The Segments",
-        _escape_dollars(state["segments"]),
+        "### [Segments]",
+        _escape_markdown_chars(state["segments"]),
         "",
-        "### The Outlook",
-        _escape_dollars(state["outlook"]),
+        "### [Outlook]",
+        _escape_markdown_chars(state["outlook"]),
     ]
     return "\n".join(part for part in sections if part is not None).strip() + "\n"
 
@@ -170,12 +170,18 @@ def render_document_sections_markdown(state: ResearchState) -> str | None:
     for key in section_order:
         if key in sections and sections[key].strip():
             title = key.replace("_", " ").title()
-            parts.append(f"## {title}\n\n{_escape_dollars(sections[key].strip())}")
+            parts.append(f"## {title}\n\n{_escape_markdown_chars(sections[key].strip())}")
     for key in sorted(sections):
         if key not in section_order and sections[key].strip():
             title = key.replace("_", " ").title()
-            parts.append(f"## {title}\n\n{_escape_dollars(sections[key].strip())}")
+            parts.append(f"## {title}\n\n{_escape_markdown_chars(sections[key].strip())}")
     return "\n\n".join(parts).strip() + "\n"
+
+
+def build_perspective_state(state: ResearchState, perspective_outputs: dict[str, str]) -> ResearchState:
+    overlay = dict(state)
+    overlay.update(perspective_outputs)
+    return overlay
 
 
 def build_payload(state: ResearchState) -> dict[str, Any]:

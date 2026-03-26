@@ -85,6 +85,13 @@ def main() -> None:
     try:
         state = workflow.invoke(initial_state)
 
+        # Read original file bytes for auditability
+        source_file_bytes: bytes | None = None
+        source_file_name: str | None = None
+        if args.input_file and args.input_file.exists():
+            source_file_bytes = args.input_file.read_bytes()
+            source_file_name = args.input_file.name
+
         store = ArtifactStore(settings)
         persisted = store.save_local(
             title=state["title"],
@@ -92,14 +99,35 @@ def main() -> None:
             morning_note_markdown=state["final_morning_note_markdown"],
             payload=state["final_payload"],
             document_sections_markdown=state.get("final_document_sections_markdown"),
+            raw_input_text=raw_input,
+            source_file_bytes=source_file_bytes,
+            source_file_name=source_file_name,
+            optimist_analyst_markdown=state.get("debate_optimist_analyst_markdown"),
+            optimist_morning_note_markdown=state.get("debate_optimist_morning_note_markdown"),
+            optimist_payload=state.get("debate_optimist_payload"),
+            pessimist_analyst_markdown=state.get("debate_pessimist_analyst_markdown"),
+            pessimist_morning_note_markdown=state.get("debate_pessimist_morning_note_markdown"),
+            pessimist_payload=state.get("debate_pessimist_payload"),
         )
 
         console.print(Panel.fit(state["final_markdown"], title="Generated research note"))
         console.print(f"\nSaved analyst review: [green]{persisted.analyst_markdown_path}[/green]")
         console.print(f"Saved morning note:   [green]{persisted.morning_note_markdown_path}[/green]")
         console.print(f"Saved JSON:           [green]{persisted.json_path}[/green]")
+        if persisted.source_input_path:
+            console.print(f"Saved source input:   [green]{persisted.source_input_path}[/green]")
+        if persisted.source_file_path:
+            console.print(f"Saved source file:    [green]{persisted.source_file_path}[/green]")
         if persisted.document_sections_path:
             console.print(f"Saved doc sections:   [green]{persisted.document_sections_path}[/green]")
+        if persisted.optimist_analyst_path:
+            console.print(f"Saved optimist analyst:  [green]{persisted.optimist_analyst_path}[/green]")
+            console.print(f"Saved optimist morning:  [green]{persisted.optimist_morning_note_path}[/green]")
+            console.print(f"Saved optimist JSON:     [green]{persisted.optimist_json_path}[/green]")
+        if persisted.pessimist_analyst_path:
+            console.print(f"Saved pessimist analyst: [green]{persisted.pessimist_analyst_path}[/green]")
+            console.print(f"Saved pessimist morning: [green]{persisted.pessimist_morning_note_path}[/green]")
+            console.print(f"Saved pessimist JSON:    [green]{persisted.pessimist_json_path}[/green]")
 
         should_upload = args.upload or settings.upload_to_azure
         if should_upload:

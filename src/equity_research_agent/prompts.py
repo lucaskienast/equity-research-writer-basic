@@ -414,7 +414,54 @@ def _existing_context(state: ResearchState, keys: Iterable[str]) -> str:
     return "\n\n".join(chunks)
 
 
-def build_task_prompt(task_name: str, instructions: str, state: ResearchState, context_keys: Iterable[str]) -> str:
+OPTIMIST_PERSPECTIVE = """\
+
+### Perspective directive
+Adopt a constructive, optimistic lens for this analysis. Emphasise the bullish signals: positive \
+data points, upside risks, strong operational trends, favourable guidance, and any evidence that \
+the market may be underappreciating the company's prospects. Do not fabricate data, but where \
+evidence is ambiguous, lean toward the more positive interpretation. Highlight reasons an investor \
+might view this news favourably.
+"""
+
+PESSIMIST_PERSPECTIVE = """\
+
+### Perspective directive
+Adopt a sceptical, cautious lens for this analysis. Emphasise the bearish signals: negative data \
+points, downside risks, operational weaknesses, unfavourable guidance, and any evidence that the \
+market may be over-optimistic about the company's prospects. Do not fabricate data, but where \
+evidence is ambiguous, lean toward the more negative interpretation. Highlight reasons an investor \
+might view this news unfavourably.
+"""
+
+JUDGE_INSTRUCTIONS = """\
+
+### Synthesis directive
+You have received two perspective-driven drafts of the same analysis task — one optimistic and one \
+pessimistic. Your job is to produce the final, balanced version that:
+1. Preserves all factual claims that appear in BOTH drafts (high confidence).
+2. Includes factual claims that appear in only ONE draft if they are clearly supported by the source text.
+3. Discards any speculative or unsupported claims from either draft.
+4. Maintains the tone, format, and length requirements of the original task instructions below.
+5. Does NOT reference the optimist/pessimist process — the output should read as a single coherent piece.
+
+[Optimist draft]
+{optimist_output}
+
+[Pessimist draft]
+{pessimist_output}
+
+Now produce the final balanced version following the original task instructions:
+"""
+
+
+def build_task_prompt(
+    task_name: str,
+    instructions: str,
+    state: ResearchState,
+    context_keys: Iterable[str],
+    perspective: str | None = None,
+) -> str:
     metadata = _metadata_lines(state)
     context = _existing_context(state, context_keys)
 
@@ -422,6 +469,8 @@ def build_task_prompt(task_name: str, instructions: str, state: ResearchState, c
         f"Task: {task_name}",
         instructions.strip(),
     ]
+    if perspective:
+        pieces.append(perspective.strip())
     if metadata:
         pieces.append("Metadata:\n" + metadata)
 

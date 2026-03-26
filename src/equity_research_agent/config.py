@@ -33,6 +33,9 @@ class Settings(BaseSettings):
 
     local_output_dir: Path = Field(default=Path("output"), alias="LOCAL_OUTPUT_DIR")
 
+    # Debate mode: run optimist + pessimist in parallel, then a judge synthesises
+    enable_debate: bool = Field(default=False, alias="ENABLE_DEBATE")
+
     def validate_for_generation(self) -> None:
         if self.llm_provider == "openai":
             if not self.openai_api_key:

@@ -7,7 +7,7 @@ from langgraph.graph import END, START, StateGraph
 
 from .llm import ResearchClient, ClaudeResearchClient
 from .models import ResearchState
-from .renderer import build_payload, render_markdown, render_analyst_markdown, render_morning_note_markdown, render_document_sections_markdown
+from .renderer import build_payload, build_perspective_state, render_markdown, render_analyst_markdown, render_morning_note_markdown, render_document_sections_markdown
 
 _SECTION_RE = re.compile(r'\[SECTION:\s*([A-Z_]+)\]', re.MULTILINE)
 
@@ -43,6 +43,13 @@ def _split_document_node(client: ClaudeResearchClient) -> Callable[[ResearchStat
 
 def _make_generation_node(client: ClaudeResearchClient, task_key: str) -> Callable[[ResearchState], ResearchState]:
     def _node(state: ResearchState) -> ResearchState:
+        if client.debate_enabled:
+            judge, optimist, pessimist = client.generate_with_debate(task_key, state)
+            return {
+                task_key: judge,
+                "debate_optimist": {task_key: optimist},
+                "debate_pessimist": {task_key: pessimist},
+            }
         return {task_key: client.generate(task_key, state)}
 
     return _node
@@ -54,13 +61,24 @@ def _render_node(state: ResearchState) -> ResearchState:
     analyst_md = render_analyst_markdown(state)
     morning_note_md = render_morning_note_markdown(state)
     sections_md = render_document_sections_markdown(state)
-    return {
+    result: dict = {
         "final_markdown": markdown,
         "final_payload": payload,
         "final_analyst_markdown": analyst_md,
         "final_morning_note_markdown": morning_note_md,
         "final_document_sections_markdown": sections_md,
     }
+    if state.get("debate_optimist"):
+        opt_state = build_perspective_state(state, state["debate_optimist"])
+        result["debate_optimist_analyst_markdown"] = render_analyst_markdown(opt_state)
+        result["debate_optimist_morning_note_markdown"] = render_morning_note_markdown(opt_state)
+        result["debate_optimist_payload"] = build_payload(opt_state)
+    if state.get("debate_pessimist"):
+        pes_state = build_perspective_state(state, state["debate_pessimist"])
+        result["debate_pessimist_analyst_markdown"] = render_analyst_markdown(pes_state)
+        result["debate_pessimist_morning_note_markdown"] = render_morning_note_markdown(pes_state)
+        result["debate_pessimist_payload"] = build_payload(pes_state)
+    return result
 
 
 PHASE1_TASKS = ["summary_bullets", "unobvious_points", "spark"]
@@ -69,7 +87,14 @@ PHASE2_TASKS = ["financials", "commercial", "segments", "outlook", "top_bullets"
 
 def _render_analyst_node(state: ResearchState) -> dict:
     from .renderer import render_analyst_markdown
-    return {"final_analyst_markdown": render_analyst_markdown(state)}
+    result: dict = {"final_analyst_markdown": render_analyst_markdown(state)}
+    if state.get("debate_optimist"):
+        opt_state = build_perspective_state(state, state["debate_optimist"])
+        result["debate_optimist_analyst_markdown"] = render_analyst_markdown(opt_state)
+    if state.get("debate_pessimist"):
+        pes_state = build_perspective_state(state, state["debate_pessimist"])
+        result["debate_pessimist_analyst_markdown"] = render_analyst_markdown(pes_state)
+    return result
 
 
 def build_phase1_workflow(client: ResearchClient):
