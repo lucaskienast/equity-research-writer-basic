@@ -20,6 +20,7 @@ Provides-Extra: dev
 Requires-Dist: pytest>=8.3.0; extra == "dev"
 Requires-Dist: pytest-mock>=3.14.0; extra == "dev"
 Requires-Dist: ruff>=0.8.0; extra == "dev"
+Requires-Dist: mypy>=1.0; extra == "dev"
 
 # Equity Research Agent
 
@@ -28,7 +29,8 @@ A production-style starter repository for an **agentic equity research drafting 
 - **Python 3.11+**
 - **LangChain**
 - **LangGraph**
-- **Claude via Anthropic API**
+- **OpenAI or Anthropic API** (provider-selectable via `LLM_PROVIDER`)
+- **Flask web UI**
 - **Azure Blob Storage**
 
 This project takes pasted text (for example, a company news release, trading update, or inbound research email), runs it through a deterministic editorial workflow, prints the final research note to the console, writes local artifacts, and optionally uploads them to Azure Blob Storage.
@@ -108,7 +110,10 @@ equity-research-agent/
 │       ├── prompts.py
 │       ├── renderer.py
 │       ├── storage.py
+│       ├── web.py
 │       └── workflow.py
+│   └── templates/
+│       └── index.html
 └── tests/
     ├── test_renderer.py
     └── test_storage.py
@@ -121,7 +126,7 @@ equity-research-agent/
 ```mermaid
 flowchart TD
     A[Input text from analyst] --> B[CLI entrypoint]
-    B --> C[Load settings and initialise Claude client]
+    B --> C[Load settings and initialise LLM client]
     C --> D[LangGraph workflow]
     D --> E[Summary bullets]
     E --> F[Unobvious points]
@@ -146,13 +151,11 @@ flowchart TD
 
 This centralises environment-driven settings:
 
+- LLM provider selection (`openai` or `anthropic`)
+- model name, temperature, max tokens (shared across providers)
+- OpenAI API key
 - Anthropic API key
-- Claude model name
-- model temperature
-- max tokens
-- Azure connection string
-- Azure container name
-- Azure blob prefix
+- Azure connection string, container name, blob prefix
 - local output directory
 
 This makes the workflow portable between local dev, CI, and production.
@@ -174,13 +177,23 @@ This is where you should tune house style.
 
 ### 3. `llm.py`
 
-This wraps `ChatAnthropic` and ensures every generation call uses:
+`ResearchClient` wraps either `ChatOpenAI` or `ChatAnthropic` depending on `LLM_PROVIDER`, and ensures every generation call uses:
 
 - the shared system prompt
 - the task-specific instructions
 - the relevant prior context
 
 This makes the workflow feel like one consistent editorial conversation even though each node is invoked separately.
+
+### 3a. `web.py`
+
+A Flask application providing:
+
+- `GET /` — dark/light mode UI with file upload
+- `POST /api/run` — starts the workflow in a background thread, returns a `job_id`
+- `GET /api/status/<job_id>` — poll for `running` / `done` / `error` and retrieve results
+
+Start with `make run-web` or `python -m equity_research_agent.web` — listens on http://localhost:5000.
 
 ### 4. `workflow.py`
 
@@ -192,8 +205,9 @@ State fields are accumulated as the graph progresses. Each node writes one key b
 
 This takes all generated sections and assembles:
 
-- final markdown document
-- final JSON payload
+- `analyst_review.md` — full structured note for the analyst
+- `morning_note.md` — condensed morning note format
+- `research_note.json` — machine-readable JSON payload
 
 ### 6. `storage.py`
 
@@ -206,15 +220,16 @@ This handles:
 
 ### 7. `cli.py`
 
-This is the simple user entrypoint.
+This is the command-line entrypoint.
 
 It:
 
-- reads input text from `--text`, `--input-file`, or stdin
+- reads input text from `--text`, `--input-file`, or stdin (PDF and TXT supported)
+- accepts `--company`, `--ticker`, `--analyst` metadata flags
 - runs the graph
 - prints the final markdown to the console
-- writes the outputs locally
-- uploads to Azure if requested
+- writes `analyst_review.md`, `morning_note.md`, and `research_note.json` locally
+- uploads to Azure if `--upload` or `UPLOAD_TO_AZURE=true`
 
 ---
 
@@ -248,10 +263,9 @@ Create a `Settings` class using `pydantic-settings`.
 
 Read the following from environment variables:
 
-- `ANTHROPIC_API_KEY`
-- `ANTHROPIC_MODEL`
-- `ANTHROPIC_TEMPERATURE`
-- `ANTHROPIC_MAX_TOKENS`
+- `LLM_PROVIDER` (default: `openai`)
+- `LLM_MODEL`, `LLM_TEMPERATURE`, `LLM_MAX_TOKENS`
+- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`
 - `AZURE_STORAGE_CONNECTION_STRING`
 - `AZURE_BLOB_CONTAINER`
 - `AZURE_BLOB_PREFIX`
@@ -292,11 +306,11 @@ For each section, define:
 
 Do **not** rely on a single monster prompt. Keep each node focused.
 
-### Step 6: Wrap Claude in a reusable client
+### Step 6: Wrap the LLM in a reusable client
 
-Create one class that:
+Create one class (`ResearchClient`) that:
 
-- initialises `ChatAnthropic`
+- initialises `ChatOpenAI` or `ChatAnthropic` based on `LLM_PROVIDER`
 - injects the base system prompt
 - injects the task prompt
 - returns normalised text output
@@ -330,7 +344,8 @@ Render two output forms:
 
 Create a timestamped output directory and write:
 
-- `research_note.md`
+- `analyst_review.md`
+- `morning_note.md`
 - `research_note.json`
 
 ### Step 10: Upload to Azure Blob Storage
@@ -338,12 +353,11 @@ Create a timestamped output directory and write:
 Using `BlobServiceClient`:
 
 - create or access the target container
-- upload markdown file
-- upload json file
+- upload all three artifact files
 - use a blob path convention such as:
 
 ```text
-equity-research/YYYY/MM/DD/run-id/research_note.md
+equity-research/YYYY/MM/DD/run-id/analyst_review.md
 ```
 
 ### Step 11: Add basic tests
@@ -393,9 +407,17 @@ cp .env.example .env
 
 Then edit `.env` and add your real values.
 
-At minimum, for local generation you need:
+At minimum, for local generation you need one of:
 
 ```env
+# OpenAI (default provider)
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+OPENAI_API_KEY=...
+
+# or Anthropic
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-sonnet-4-6
 ANTHROPIC_API_KEY=...
 ```
 
@@ -445,6 +467,23 @@ python -m equity_research_agent.cli \
   --upload
 ```
 
+### Option 5: Flask web UI
+
+```bash
+make run-web
+# or
+python -m equity_research_agent.web
+```
+
+Open http://localhost:5000 in your browser.
+
+Features:
+- Dark/light mode toggle
+- File upload (PDF or TXT, up to 20 MB) with optional inline text note
+- Company, ticker, and analyst metadata fields
+- Async job submission — UI polls until complete
+- Two-panel output showing analyst review and morning note side by side
+
 ---
 
 ## Example output files
@@ -453,8 +492,9 @@ Each run writes a timestamped folder under `output/`, for example:
 
 ```text
 output/20260301T101500Z-example-co-demand-slows-but-margin-holds/
-├── research_note.json
-└── research_note.md
+├── analyst_review.md
+├── morning_note.md
+└── research_note.json
 ```
 
 ---

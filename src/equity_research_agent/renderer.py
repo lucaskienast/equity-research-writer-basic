@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from .models import ResearchState
 
@@ -87,24 +87,12 @@ def render_morning_note_markdown(state: ResearchState) -> str:
 
 
 def render_markdown(state: ResearchState) -> str:
-    company_line = []
-    if state.get("company"):
-        company_line.append(f"**Company:** {state['company']}")
-    if state.get("ticker"):
-        company_line.append(f"**Ticker:** {state['ticker']}")
-    if state.get("analyst"):
-        company_line.append(f"**Requested by:** {state['analyst']}")
-    if state.get("llm_model"):
-        company_line.append(f"**Model:** {state['llm_model']}")
-
-    metadata_block = " | ".join(company_line)
+    header = _build_header(state)
     now = datetime.now(timezone.utc)
-    generated_at = now.strftime("%Y-%m-%d %H:%M UTC")
     note_date = f"{now.day} {now.strftime('%B %Y')}"
 
     sections = [
-        metadata_block if metadata_block else "",
-        f"**Generated:** {generated_at}",
+        header,
         "",
         "\n".join([
             '<div class="analyst-box" style="background-color:#fffde7;padding:16px;border-radius:8px;border:1px solid #fff176;margin:16px 0">',
@@ -181,7 +169,7 @@ def render_document_sections_markdown(state: ResearchState) -> str | None:
 def build_perspective_state(state: ResearchState, perspective_outputs: dict[str, str]) -> ResearchState:
     overlay = dict(state)
     overlay.update(perspective_outputs)
-    return overlay
+    return cast(ResearchState, overlay)
 
 
 def build_payload(state: ResearchState) -> dict[str, Any]:

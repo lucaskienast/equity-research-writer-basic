@@ -117,3 +117,10 @@ Optionally uploads all three to Azure Blob Storage using the path convention `{p
 ## Package layout
 
 Source code lives under `src/equity_research_agent/` (editable install maps this to `equity_research_agent`). Tests are in `tests/` and cover renderer and storage logic. The `examples/` directory contains sample input text files.
+
+## Active Technologies
+- Python 3.11+ + LangGraph, langchain-openai, langchain-anthropic, openai (Azure), (001-clean-refactor)
+- Local filesystem (`output/`) + optional Azure Blob Storage (001-clean-refactor)
+
+## Recent Changes
+- 001-clean-refactor: Added Python 3.11+ + LangGraph, langchain-openai, langchain-anthropic, openai (Azure),

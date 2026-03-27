@@ -6,22 +6,23 @@ import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 import pdfplumber
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 
 from .config import Settings
 from .llm import ResearchClient
 from .storage import ArtifactStore
-from .workflow import build_workflow, build_phase1_workflow, build_phase2_workflow
+from .workflow import build_phase1_workflow, build_phase2_workflow
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
 
-_jobs: dict[str, dict] = {}
+_jobs: dict[str, dict[str, Any]] = {}
 
 
-def _public_job(job: dict) -> dict:
+def _public_job(job: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in job.items() if not k.startswith("_")}
 
 
@@ -111,12 +112,12 @@ def _run_phase2_worker(job_id: str) -> None:
 
 
 @app.route("/")
-def index():
+def index() -> Any:
     return render_template("index.html")
 
 
 @app.route("/api/run", methods=["POST"])
-def api_run():
+def api_run() -> Response | tuple[Response, int]:
     file_text = ""
     source_file_bytes: bytes | None = None
     source_file_name: str | None = None
@@ -137,7 +138,8 @@ def api_run():
     typed_text = request.form.get("text", "").strip()
 
     if typed_text and file_text:
-        raw_input = f"[User note]\n{typed_text}\n\n[Document: {uploaded.filename}]\n{file_text}"
+        uploaded_name = uploaded.filename if uploaded else ""
+        raw_input = f"[User note]\n{typed_text}\n\n[Document: {uploaded_name}]\n{file_text}"
     elif file_text:
         raw_input = file_text
     else:
@@ -175,7 +177,7 @@ def api_run():
 
 
 @app.route("/api/approve/<job_id>", methods=["POST"])
-def api_approve(job_id: str):
+def api_approve(job_id: str) -> Response | tuple[Response, int]:
     job = _jobs.get(job_id)
     if job is None:
         return jsonify({"error": "Job not found."}), 404
@@ -197,7 +199,7 @@ def api_approve(job_id: str):
 
 
 @app.route("/api/feedback/<job_id>", methods=["POST"])
-def api_feedback(job_id: str):
+def api_feedback(job_id: str) -> Response | tuple[Response, int]:
     job = _jobs.get(job_id)
     if job is None or job.get("status") != "done":
         return jsonify({"error": "Job not found or not complete."}), 404
@@ -222,7 +224,7 @@ def api_feedback(job_id: str):
 
 
 @app.route("/api/status/<job_id>")
-def api_status(job_id: str):
+def api_status(job_id: str) -> Response | tuple[Response, int]:
     job = _jobs.get(job_id)
     if job is None:
         return jsonify({"error": "Job not found."}), 404
@@ -230,7 +232,7 @@ def api_status(job_id: str):
 
 
 @app.route("/api/history")
-def api_history():
+def api_history() -> Response:
     import re
     settings = Settings()
     output_dir = Path(settings.local_output_dir)
@@ -271,7 +273,7 @@ def api_history():
 
 
 @app.route("/api/history/<run_id>")
-def api_history_run(run_id: str):
+def api_history_run(run_id: str) -> Response | tuple[Response, int]:
     import re
     # Prevent path traversal: only allow safe directory names
     if not re.match(r"^[\w\-]+$", run_id):
@@ -320,7 +322,7 @@ def api_history_run(run_id: str):
 
 
 @app.errorhandler(413)
-def request_entity_too_large(e):
+def request_entity_too_large(e: Exception) -> tuple[Response, int]:
     return jsonify({"error": "File too large. Maximum size is 20 MB."}), 413
 
 
