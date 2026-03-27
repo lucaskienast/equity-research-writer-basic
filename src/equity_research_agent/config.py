@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=1400, alias="LLM_MAX_TOKENS")
 
+    # Azure
+    azure_api_key: str | None = Field(default=None, alias="AZURE_API_KEY")
+    llm_endpoint: str | None = Field(default=None, alias="LLM_ENDPOINT")
+
     # OpenAI
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
 
@@ -37,7 +41,12 @@ class Settings(BaseSettings):
     enable_debate: bool = Field(default=False, alias="ENABLE_DEBATE")
 
     def validate_for_generation(self) -> None:
-        if self.llm_provider == "openai":
+        if self.llm_provider == "azure":
+            if not self.azure_api_key:
+                raise ValueError("AZURE_API_KEY is required when LLM_PROVIDER=azure.")
+            if not self.llm_endpoint:
+                raise ValueError("LLM_ENDPOINT is required when LLM_PROVIDER=azure.")
+        elif self.llm_provider == "openai":
             if not self.openai_api_key:
                 raise ValueError("OPENAI_API_KEY is required when LLM_PROVIDER=openai.")
         elif self.llm_provider == "anthropic":

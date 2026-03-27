@@ -6,6 +6,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from .config import Settings
 
@@ -43,17 +44,17 @@ class ArtifactStore:
         title: str,
         analyst_markdown: str | None = None,
         morning_note_markdown: str | None = None,
-        payload: dict | None = None,
+        payload: dict[str, Any] | None = None,
         document_sections_markdown: str | None = None,
         raw_input_text: str | None = None,
         source_file_bytes: bytes | None = None,
         source_file_name: str | None = None,
         optimist_analyst_markdown: str | None = None,
         optimist_morning_note_markdown: str | None = None,
-        optimist_payload: dict | None = None,
+        optimist_payload: dict[str, Any] | None = None,
         pessimist_analyst_markdown: str | None = None,
         pessimist_morning_note_markdown: str | None = None,
-        pessimist_payload: dict | None = None,
+        pessimist_payload: dict[str, Any] | None = None,
         run_dir: Path | None = None,
     ) -> PersistedArtifacts:
         if run_dir is None:
@@ -146,7 +147,7 @@ class ArtifactStore:
         timestamp = datetime.now(timezone.utc).strftime("%Y/%m/%d")
         prefix = self.settings.azure_blob_prefix.strip("/")
 
-        service = BlobServiceClient.from_connection_string(self.settings.azure_storage_connection_string)
+        service = BlobServiceClient.from_connection_string(self.settings.azure_storage_connection_string)  # type: ignore[arg-type]
         container = service.get_container_client(self.settings.azure_blob_container)
         try:
             container.create_container()

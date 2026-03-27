@@ -16,5 +16,6 @@ src/equity_research_agent.egg-info/dependency_links.txt
 src/equity_research_agent.egg-info/entry_points.txt
 src/equity_research_agent.egg-info/requires.txt
 src/equity_research_agent.egg-info/top_level.txt
+tests/test_chunking.py
 tests/test_renderer.py
 tests/test_storage.py
