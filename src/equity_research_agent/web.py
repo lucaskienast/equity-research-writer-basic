@@ -93,6 +93,15 @@ def _run_phase2_worker(job_id: str) -> None:
             pessimist_payload=state.get("debate_pessimist_payload"),
             run_dir=existing_run_dir,
         )
+        if settings.upload_to_sharepoint:
+            try:
+                urls = store.upload(persisted)
+                _jobs[job_id]["sharepoint_upload"] = {"status": "success", "paths": urls}
+            except Exception as exc:
+                _jobs[job_id]["sharepoint_upload"] = {"status": "failed", "error": str(exc)}
+        else:
+            _jobs[job_id]["sharepoint_upload"] = {"status": "skipped"}
+
         _jobs[job_id]["status"] = "done"
         _jobs[job_id]["morning_note_markdown"] = state.get("final_morning_note_markdown")
         _jobs[job_id]["analyst_markdown"] = state.get("final_analyst_markdown")
@@ -163,6 +172,7 @@ def api_run() -> Response | tuple[Response, int]:
         "pessimist_morning_note_markdown": None,
         "title": None,
         "run_dir": None,
+        "sharepoint_upload": None,
         "error": None,
         "_state": None,
         "_client": None,

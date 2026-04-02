@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "equity-research-agent"
 version = "0.1.0"
-description = "Agentic equity research drafting workflow using LangGraph, LangChain, Claude, and Azure Blob Storage."
+description = "Agentic equity research drafting workflow using LangGraph, LangChain, Claude, and SharePoint storage."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -15,8 +15,8 @@ dependencies = [
   "langchain>=0.3.0",
   "langchain-anthropic>=0.3.0",
   "langgraph>=0.2.0",
-  "azure-storage-blob>=12.24.0",
-  "azure-core>=1.32.0",
+  "msal>=1.28.0",
+  "requests>=2.32.0",
   "pydantic>=2.10.0",
   "pydantic-settings>=2.7.0",
   "pdfplumber>=0.11.0",

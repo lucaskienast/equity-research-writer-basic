@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: equity-research-agent
 Version: 0.1.0
-Summary: Agentic equity research drafting workflow using LangGraph, LangChain, Claude, and Azure Blob Storage.
+Summary: Agentic equity research drafting workflow using LangGraph, LangChain, Claude, and SharePoint storage.
 Author: OpenAI
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: langchain>=0.3.0
 Requires-Dist: langchain-anthropic>=0.3.0
 Requires-Dist: langgraph>=0.2.0
-Requires-Dist: azure-storage-blob>=12.24.0
-Requires-Dist: azure-core>=1.32.0
+Requires-Dist: msal>=1.28.0
+Requires-Dist: requests>=2.32.0
 Requires-Dist: pydantic>=2.10.0
 Requires-Dist: pydantic-settings>=2.7.0
 Requires-Dist: pdfplumber>=0.11.0

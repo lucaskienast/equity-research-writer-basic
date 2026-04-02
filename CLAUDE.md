@@ -121,6 +121,8 @@ Source code lives under `src/equity_research_agent/` (editable install maps this
 ## Active Technologies
 - Python 3.11+ + LangGraph, langchain-openai, langchain-anthropic, openai (Azure), (001-clean-refactor)
 - Local filesystem (`output/`) + optional Azure Blob Storage (001-clean-refactor)
+- Python 3.11+ + `msal>=1.28`, `requests>=2.32` (added); `azure-storage-blob`, (002-sharepoint-storage)
+- Local filesystem (`output/`) + SharePoint Online via Microsoft Graph REST API (002-sharepoint-storage)
 
 ## Recent Changes
 - 001-clean-refactor: Added Python 3.11+ + LangGraph, langchain-openai, langchain-anthropic, openai (Azure),

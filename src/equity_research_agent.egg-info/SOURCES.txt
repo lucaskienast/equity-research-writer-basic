@@ -7,6 +7,7 @@ src/equity_research_agent/llm.py
 src/equity_research_agent/models.py
 src/equity_research_agent/prompts.py
 src/equity_research_agent/renderer.py
+src/equity_research_agent/sharepoint.py
 src/equity_research_agent/storage.py
 src/equity_research_agent/web.py
 src/equity_research_agent/workflow.py
@@ -17,5 +18,9 @@ src/equity_research_agent.egg-info/entry_points.txt
 src/equity_research_agent.egg-info/requires.txt
 src/equity_research_agent.egg-info/top_level.txt
 tests/test_chunking.py
+tests/test_cli.py
+tests/test_llm.py
 tests/test_renderer.py
+tests/test_sharepoint.py
 tests/test_storage.py
+tests/test_workflow.py

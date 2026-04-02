@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=1400, alias="LLM_MAX_TOKENS")
 
-    # Azure
+    # Azure OpenAI (LLM only — not storage)
     azure_api_key: str | None = Field(default=None, alias="AZURE_API_KEY")
     llm_endpoint: str | None = Field(default=None, alias="LLM_ENDPOINT")
 
@@ -27,13 +27,13 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
 
-    # Azure Blob Storage
-    azure_storage_connection_string: str | None = Field(
-        default=None, alias="AZURE_STORAGE_CONNECTION_STRING"
-    )
-    azure_blob_container: str = Field(default="equity-research-output", alias="AZURE_BLOB_CONTAINER")
-    azure_blob_prefix: str = Field(default="equity-research", alias="AZURE_BLOB_PREFIX")
-    upload_to_azure: bool = Field(default=False, alias="UPLOAD_TO_AZURE")
+    # SharePoint storage (via Microsoft Graph)
+    sharepoint_tenant_id: str | None = Field(default=None, alias="SHAREPOINT_TENANT_ID")
+    sharepoint_client_id: str | None = Field(default=None, alias="SHAREPOINT_CLIENT_ID")
+    sharepoint_client_secret: SecretStr | None = Field(default=None, alias="SHAREPOINT_CLIENT_SECRET")
+    sharepoint_drive_id: str | None = Field(default=None, alias="SHAREPOINT_DRIVE_ID")
+    sharepoint_upload_base_path: str = Field(default="equity-research", alias="SHAREPOINT_UPLOAD_BASE_PATH")
+    upload_to_sharepoint: bool = Field(default=False, alias="UPLOAD_TO_SHAREPOINT")
 
     local_output_dir: Path = Field(default=Path("output"), alias="LOCAL_OUTPUT_DIR")
 
@@ -58,7 +58,18 @@ class Settings(BaseSettings):
             )
 
     def validate_for_upload(self) -> None:
-        if not self.azure_storage_connection_string:
+        missing = [
+            name
+            for name, value in [
+                ("SHAREPOINT_TENANT_ID", self.sharepoint_tenant_id),
+                ("SHAREPOINT_CLIENT_ID", self.sharepoint_client_id),
+                ("SHAREPOINT_CLIENT_SECRET", self.sharepoint_client_secret),
+                ("SHAREPOINT_DRIVE_ID", self.sharepoint_drive_id),
+            ]
+            if not value
+        ]
+        if missing:
             raise ValueError(
-                "AZURE_STORAGE_CONNECTION_STRING is required when upload is enabled."
+                f"The following settings are required when UPLOAD_TO_SHAREPOINT=true: "
+                f"{', '.join(missing)}"
             )

@@ -30,7 +30,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--upload",
         action="store_true",
-        help="Upload output artifacts to Azure Blob Storage after local generation.",
+        help="Upload output artifacts to SharePoint after local generation.",
     )
     return parser.parse_args()
 
@@ -129,12 +129,17 @@ def main() -> None:
             console.print(f"Saved pessimist morning: [green]{persisted.pessimist_morning_note_path}[/green]")
             console.print(f"Saved pessimist JSON:    [green]{persisted.pessimist_json_path}[/green]")
 
-        should_upload = args.upload or settings.upload_to_azure
+        should_upload = args.upload or settings.upload_to_sharepoint
         if should_upload:
-            urls = store.upload(persisted)
-            console.print("\n[bold green]Uploaded to Azure Blob Storage:[/bold green]")
-            for label, url in urls.items():
-                console.print(f"- {label}: {url}")
+            try:
+                urls = store.upload(persisted)
+                console.print("\n[bold green]Uploaded to SharePoint:[/bold green]")
+                for label, url in urls.items():
+                    console.print(f"- {label}: {url}")
+            except Exception as exc:
+                console.print(f"\n[bold yellow]SharePoint upload failed (local files preserved): {exc}[/bold yellow]")
+        else:
+            console.print("\nSharePoint upload skipped.")
     except Exception as exc:
         elapsed = time.perf_counter() - t0
         console.print(f"\n[bold red]Workflow failed after {elapsed:.1f}s[/bold red]: {exc}")

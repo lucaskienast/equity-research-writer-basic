@@ -26,7 +26,7 @@ class PersistedArtifacts:
     pessimist_analyst_path: Path | None = None
     pessimist_morning_note_path: Path | None = None
     pessimist_json_path: Path | None = None
-    azure_urls: dict[str, str] | None = None
+    sharepoint_urls: dict[str, str] | None = None
 
 
 def _simple_slugify(value: str) -> str:
@@ -140,58 +140,10 @@ class ArtifactStore:
         )
 
     def upload(self, persisted: PersistedArtifacts) -> dict[str, str]:
-        from azure.core.exceptions import ResourceExistsError
-        from azure.storage.blob import BlobServiceClient, ContentSettings
+        from .sharepoint import SharePointUploader
 
         self.settings.validate_for_upload()
-        timestamp = datetime.now(timezone.utc).strftime("%Y/%m/%d")
-        prefix = self.settings.azure_blob_prefix.strip("/")
-
-        service = BlobServiceClient.from_connection_string(self.settings.azure_storage_connection_string)  # type: ignore[arg-type]
-        container = service.get_container_client(self.settings.azure_blob_container)
-        try:
-            container.create_container()
-        except ResourceExistsError:
-            pass
-
-        candidates: list[tuple[str, Path, str]] = []
-        if persisted.analyst_markdown_path:
-            candidates.append(("analyst_markdown", persisted.analyst_markdown_path, "text/markdown"))
-        if persisted.morning_note_markdown_path:
-            candidates.append(("morning_note_markdown", persisted.morning_note_markdown_path, "text/markdown"))
-        if persisted.json_path:
-            candidates.append(("json", persisted.json_path, "application/json"))
-        if persisted.source_input_path:
-            candidates.append(("source_input", persisted.source_input_path, "text/plain"))
-        if persisted.source_file_path:
-            mime = "application/pdf" if persisted.source_file_path.suffix == ".pdf" else "application/octet-stream"
-            candidates.append(("source_file", persisted.source_file_path, mime))
-        if persisted.document_sections_path:
-            candidates.append(("document_sections", persisted.document_sections_path, "text/markdown"))
-        if persisted.optimist_analyst_path:
-            candidates.append(("optimist_analyst_markdown", persisted.optimist_analyst_path, "text/markdown"))
-        if persisted.optimist_morning_note_path:
-            candidates.append(("optimist_morning_note_markdown", persisted.optimist_morning_note_path, "text/markdown"))
-        if persisted.optimist_json_path:
-            candidates.append(("optimist_json", persisted.optimist_json_path, "application/json"))
-        if persisted.pessimist_analyst_path:
-            candidates.append(("pessimist_analyst_markdown", persisted.pessimist_analyst_path, "text/markdown"))
-        if persisted.pessimist_morning_note_path:
-            candidates.append(("pessimist_morning_note_markdown", persisted.pessimist_morning_note_path, "text/markdown"))
-        if persisted.pessimist_json_path:
-            candidates.append(("pessimist_json", persisted.pessimist_json_path, "application/json"))
-
-        uploads: dict[str, str] = {}
-        for label, path, content_type in candidates:
-            blob_name = f"{prefix}/{timestamp}/{persisted.run_dir.name}/{path.name}"
-            blob_client = container.get_blob_client(blob_name)
-            with path.open("rb") as fh:
-                blob_client.upload_blob(
-                    fh,
-                    overwrite=True,
-                    content_settings=ContentSettings(content_type=content_type),
-                )
-            uploads[label] = blob_client.url
-
-        persisted.azure_urls = uploads
-        return uploads
+        uploader = SharePointUploader(self.settings)
+        urls = uploader.upload(persisted)
+        persisted.sharepoint_urls = urls
+        return urls
